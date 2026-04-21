@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import API from "../services/api";
+import API from "@/services/api.js";
 import { toast } from "react-toastify";
 import { FiArrowLeft } from "react-icons/fi";
 
@@ -32,48 +32,41 @@ export default function OrderDetail() {
 
   return (
     <div>
-      <button className="btn btn-outline" onClick={() => navigate("/orders")} style={{ marginBottom: 16 }}>
+      <button className="btn btn-outline order-back-btn" onClick={() => navigate("/orders")}>
         <FiArrowLeft /> Back to Orders
       </button>
 
-      <div className="card" style={{ marginBottom: 20 }}>
-        <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="card order-detail-card">
+        <div className="card-header card-header-inline">
           <span>Order {order.orderNumber}</span>
           <span className={`badge badge-${order.status.toLowerCase()}`}>{order.status}</span>
         </div>
         <div className="card-body">
           {/* Status Timeline */}
           {!isCancelled && (
-            <div style={{ display: "flex", gap: 0, marginBottom: 24, overflow: "auto" }}>
+            <div className="order-timeline">
               {statusSteps.map((step, i) => (
-                <div key={step} style={{
-                  flex: 1, textAlign: "center", position: "relative",
-                  padding: "12px 8px",
-                  background: i <= currentIdx ? "#4f46e5" : "#f3f4f6",
-                  color: i <= currentIdx ? "white" : "#6b7280",
-                  fontWeight: i === currentIdx ? 700 : 400,
-                  fontSize: "0.85rem",
-                  borderRadius: i === 0 ? "8px 0 0 8px" : i === statusSteps.length - 1 ? "0 8px 8px 0" : 0,
-                }}>
+                <div
+                  key={step}
+                  className={`order-step${i <= currentIdx ? " done" : ""}${i === currentIdx ? " current" : ""}`}
+                >
                   {step}
                 </div>
               ))}
             </div>
           )}
-          {isCancelled && (
-            <div className="alert alert-danger" style={{ marginBottom: 16 }}>This order has been cancelled.</div>
-          )}
+          {isCancelled && <div className="alert alert-danger order-cancelled-alert">This order has been cancelled.</div>}
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+          <div className="order-detail-grid">
             <div>
-              <h4 style={{ marginBottom: 12 }}>Customer</h4>
+              <h4 className="order-section-title">Customer</h4>
               <p><strong>{order.customer?.name}</strong></p>
               <p>{order.customer?.email}</p>
               <p>{order.customer?.phone}</p>
               <p>{order.customer?.address}, {order.customer?.city}</p>
             </div>
             <div>
-              <h4 style={{ marginBottom: 12 }}>Order Info</h4>
+              <h4 className="order-section-title">Order Info</h4>
               <p><strong>Warehouse:</strong> {order.warehouse}</p>
               <p><strong>Created By:</strong> {order.createdBy?.name}</p>
               <p><strong>Created:</strong> {new Date(order.createdAt).toLocaleString()}</p>
@@ -104,9 +97,9 @@ export default function OrderDetail() {
                   <td><strong>${item.total.toFixed(2)}</strong></td>
                 </tr>
               ))}
-              <tr style={{ background: "#f9fafb" }}>
-                <td colSpan={4} style={{ textAlign: "right", fontWeight: 700 }}>Total Amount</td>
-                <td><strong style={{ fontSize: "1.1rem" }}>${order.totalAmount.toFixed(2)}</strong></td>
+              <tr className="order-total-row">
+                <td colSpan={4} className="order-total-label">Total Amount</td>
+                <td><strong className="order-total-value">${order.totalAmount.toFixed(2)}</strong></td>
               </tr>
             </tbody>
           </table>

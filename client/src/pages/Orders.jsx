@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import API from "../services/api";
-import { useAuth } from "../context/AuthContext";
+import API from "@/services/api.js";
+import { useAuth } from "@/context/AuthContext.jsx";
 import { toast } from "react-toastify";
 import { FiPlus, FiSearch, FiEye, FiCheck, FiX } from "react-icons/fi";
-import Pagination from "../components/Pagination";
+import Pagination from "@/components/Pagination.jsx";
 
 export default function Orders() {
   const { hasRole } = useAuth();

@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import API from "../services/api";
+import API from "@/services/api.js";
 import { toast } from "react-toastify";
 import { FiSearch } from "react-icons/fi";
-import Pagination from "../components/Pagination";
+import Pagination from "@/components/Pagination.jsx";
 
 const typeLabels = {
   INITIAL: "Initial Stock",

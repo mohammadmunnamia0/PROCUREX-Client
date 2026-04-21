@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "@/context/AuthContext.jsx";
 import { toast } from "react-toastify";
 import { FiBox } from "react-icons/fi";
 
@@ -8,6 +8,13 @@ export default function Login() {
   const { login } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
+
+  const demoAccounts = [
+    { label: "Admin", email: "admin@orderflow.com" },
+    { label: "Sales", email: "sales@orderflow.com" },
+    { label: "Warehouse", email: "warehouse@orderflow.com" },
+    { label: "Viewer", email: "viewer@orderflow.com" },
+  ];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,11 +31,28 @@ export default function Login() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div style={{ textAlign: "center", marginBottom: 8 }}>
-          <FiBox size={40} color="#4f46e5" />
+        <div className="auth-logo-wrap">
+          <FiBox className="auth-logo" />
         </div>
         <h1>ORDERFLOW</h1>
         <p className="subtitle">Inventory & Order Management System</p>
+
+        <div className="demo-credentials">
+          <p>Quick demo sign-in (password: <strong>password123</strong>)</p>
+          <div className="demo-grid">
+            {demoAccounts.map((account) => (
+              <button
+                key={account.email}
+                type="button"
+                className="demo-chip"
+                onClick={() => setForm({ email: account.email, password: "password123" })}
+              >
+                {account.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Email</label>

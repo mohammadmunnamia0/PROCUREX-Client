@@ -17,23 +17,20 @@ export default class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{
-          display: "flex", flexDirection: "column", alignItems: "center",
-          justifyContent: "center", minHeight: "60vh", padding: 40,
-        }}>
-          <h2 style={{ color: "#ef4444", marginBottom: 12 }}>Something went wrong</h2>
-          <p style={{ color: "#6b7280", marginBottom: 20 }}>
-            {this.state.error?.message || "An unexpected error occurred."}
-          </p>
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              this.setState({ hasError: false, error: null });
-              window.location.href = "/";
-            }}
-          >
-            Go to Dashboard
-          </button>
+        <div className="error-boundary">
+          <div className="card">
+            <h2>Something went wrong</h2>
+            <p>{this.state.error?.message || "An unexpected error occurred."}</p>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.href = "/";
+              }}
+            >
+              Go to Dashboard
+            </button>
+          </div>
         </div>
       );
     }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "@/context/AuthContext.jsx";
 import { toast } from "react-toastify";
 import { FiBox } from "react-icons/fi";
 
@@ -24,8 +24,8 @@ export default function Register() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div style={{ textAlign: "center", marginBottom: 8 }}>
-          <FiBox size={40} color="#4f46e5" />
+        <div className="auth-logo-wrap">
+          <FiBox className="auth-logo" />
         </div>
         <h1>Create Account</h1>
         <p className="subtitle">Join ORDERFLOW</p>

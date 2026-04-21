@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import API from "../services/api";
-import { useAuth } from "../context/AuthContext";
+import API from "@/services/api.js";
+import { useAuth } from "@/context/AuthContext.jsx";
 import { toast } from "react-toastify";
 import { FiPlus, FiCheck, FiX } from "react-icons/fi";
 

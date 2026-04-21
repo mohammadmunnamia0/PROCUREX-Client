@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import API from "../services/api";
+import API from "@/services/api.js";
+import { toast } from "react-toastify";
 import { FiShoppingCart, FiClock, FiAlertTriangle, FiCheckCircle, FiTrendingUp, FiPercent } from "react-icons/fi";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { exportDashboardToExcel, exportDashboardToPdf } from "@/utils/reportExport.js";
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
@@ -21,6 +23,24 @@ export default function Dashboard() {
     setLoading(false);
   };
 
+  const handleExcelDownload = () => {
+    try {
+      exportDashboardToExcel(data);
+      toast.success("Excel report downloaded");
+    } catch (err) {
+      toast.error("Failed to generate Excel report");
+    }
+  };
+
+  const handlePdfDownload = () => {
+    try {
+      exportDashboardToPdf(data);
+      toast.success("PDF report downloaded");
+    } catch (err) {
+      toast.error("Failed to generate PDF report");
+    }
+  };
+
   if (loading) return <div className="loading"><div className="spinner"></div></div>;
   if (!data) return <div className="empty-state"><p>Failed to load dashboard</p></div>;
 
@@ -28,6 +48,14 @@ export default function Dashboard() {
 
   return (
     <div>
+      <div className="page-header">
+        <h2 className="page-title">Dashboard Reports</h2>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn btn-outline" onClick={handleExcelDownload}>Download Excel</button>
+          <button className="btn btn-primary" onClick={handlePdfDownload}>Download PDF</button>
+        </div>
+      </div>
+
       {/* KPI Cards */}
       <div className="kpi-grid">
         <div className="kpi-card">
@@ -86,7 +114,7 @@ export default function Dashboard() {
                   <XAxis dataKey="_id" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip />
-                  <Bar dataKey="count" fill="#4f46e5" radius={[4, 4, 0, 0]} name="Orders" />
+                  <Bar dataKey="count" fill="#0f766e" radius={[4, 4, 0, 0]} name="Orders" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (

@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import API from "../services/api";
-import { useAuth } from "../context/AuthContext";
+import API from "@/services/api.js";
+import { useAuth } from "@/context/AuthContext.jsx";
 import { toast } from "react-toastify";
 import { FiPlus, FiEdit2, FiArchive, FiSearch } from "react-icons/fi";
-import Pagination from "../components/Pagination";
+import Pagination from "@/components/Pagination.jsx";
 
 export default function Products() {
   const { hasRole } = useAuth();

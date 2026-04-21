@@ -1,4 +1,4 @@
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "@/context/AuthContext.jsx";
 import { useLocation } from "react-router-dom";
 import { FiMenu } from "react-icons/fi";
 
@@ -17,6 +17,11 @@ const pageTitles = {
 export default function Header({ onToggleSidebar }) {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const todayLabel = new Date().toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 
   const getTitle = () => {
     if (location.pathname.startsWith("/orders/")) return "Order Details";
@@ -32,6 +37,10 @@ export default function Header({ onToggleSidebar }) {
         <h1 className="header-title">{getTitle()}</h1>
       </div>
       <div className="header-right">
+        <div className="header-meta">
+          <span className="local-badge">Local Mode</span>
+          <span className="header-date">{todayLabel}</span>
+        </div>
         <div className="header-user">
           <span>{user?.name}</span>
           <span className="role-badge">{user?.role}</span>

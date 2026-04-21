@@ -1,21 +1,20 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import { AuthProvider, useAuth } from "./context/AuthContext";
-import ErrorBoundary from "./components/ErrorBoundary";
-import Layout from "./components/Layout";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Dashboard from "./pages/Dashboard";
-import Products from "./pages/Products";
-import Inventory from "./pages/Inventory";
-import Customers from "./pages/Customers";
-import Orders from "./pages/Orders";
-import OrderDetail from "./pages/OrderDetail";
-import Fulfillment from "./pages/Fulfillment";
-import Reconciliation from "./pages/Reconciliation";
-import StockMovements from "./pages/StockMovements";
-import Users from "./pages/Users";
+import { AuthProvider, useAuth } from "@/context/AuthContext.jsx";
+import ErrorBoundary from "@/components/ErrorBoundary.jsx";
+import Layout from "@/components/Layout.jsx";
+import Login from "@/pages/Login.jsx";
+import Register from "@/pages/Register.jsx";
+import Dashboard from "@/pages/Dashboard.jsx";
+import Products from "@/pages/Products.jsx";
+import Inventory from "@/pages/Inventory.jsx";
+import Customers from "@/pages/Customers.jsx";
+import Orders from "@/pages/Orders.jsx";
+import OrderDetail from "@/pages/OrderDetail.jsx";
+import Fulfillment from "@/pages/Fulfillment.jsx";
+import Reconciliation from "@/pages/Reconciliation.jsx";
+import StockMovements from "@/pages/StockMovements.jsx";
+import Users from "@/pages/Users.jsx";
 
 function PrivateRoute({ children, roles }) {
   const { user, loading } = useAuth();

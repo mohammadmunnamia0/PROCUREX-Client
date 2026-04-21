@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "@/context/AuthContext.jsx";
 import {
   FiHome, FiPackage, FiDatabase, FiShoppingCart,
   FiUsers, FiTruck, FiClipboard, FiActivity,

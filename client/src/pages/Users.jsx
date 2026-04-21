@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import API from "../services/api";
+import API from "@/services/api.js";
 import { toast } from "react-toastify";
 import { FiEdit2, FiTrash2, FiSearch } from "react-icons/fi";
 
@@ -62,7 +62,7 @@ export default function Users() {
                 <tr key={u._id}>
                   <td><strong>{u.name}</strong></td>
                   <td>{u.email}</td>
-                  <td><span className="badge" style={{ background: "#818cf820", color: "#4f46e5" }}>{u.role}</span></td>
+                  <td><span className="badge badge-role">{u.role}</span></td>
                   <td><span className={`badge ${u.isActive ? "badge-approved" : "badge-cancelled"}`}>{u.isActive ? "Active" : "Inactive"}</span></td>
                   <td>
                     <div className="btn-group">
