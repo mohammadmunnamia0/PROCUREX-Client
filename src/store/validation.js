@@ -134,9 +134,14 @@ export function validatePurchaseOrder(values, data, { today }) {
     const otherPO = data.purchaseOrders.find(
       (p) => p.id !== values.id && p.requisitionId === values.requisitionId && p.status !== "Cancelled"
     );
+    const isNewLink = existing?.requisitionId !== values.requisitionId;
     if (!pr) errors.requisitionId = "Linked requisition no longer exists.";
     else if (otherPO) errors.requisitionId = `${pr.number} is already ordered on ${otherPO.number}.`;
-    else if (!["Approved", "Ordered"].includes(pr.status)) errors.requisitionId = `Only approved requisitions can be linked (${pr.number} is ${pr.status}).`;
+    // Only a new link must point at an approved requisition; an existing link (e.g. a
+    // cancelled order whose requisition was later cancelled too) stays editable.
+    else if (isNewLink && !["Approved", "Ordered"].includes(pr.status)) {
+      errors.requisitionId = `Only approved requisitions can be linked (${pr.number} is ${pr.status}).`;
+    }
   }
 
   checkDate(errors, "orderDate", values.orderDate, "Order date");

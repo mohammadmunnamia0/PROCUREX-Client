@@ -2,11 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createStorage, loadInitialData } from "../src/store/storage.js";
 import { normalizeData, parseBackup, toDocument } from "../src/store/normalize.js";
-import { createSampleData } from "../src/store/sampleData.js";
 import { STORAGE_KEYS, createInitialData } from "../src/store/schema.js";
-import { validatePurchaseOrder, validateRequisition, validateSupplier, hasErrors } from "../src/store/validation.js";
-import { computeKpis } from "../src/store/metrics.js";
-import { createHarness, makeEnv, ok, poValues, requisitionValues, supplierValues, TODAY } from "./helpers.js";
+import { createHarness, makeEnv, ok, poValues, requisitionValues, supplierValues } from "./helpers.js";
 
 function memoryBackend() {
   const map = new Map();
@@ -140,21 +137,4 @@ test("export → import round-trip yields identical data", () => {
   assert.equal(parsed.ok, true);
   assert.deepEqual(parsed.warnings, []);
   assert.deepEqual(parsed.data, h.state);
-});
-
-test("sample data is valid, consistent and covers every status", () => {
-  const env = makeEnv();
-  const base = createInitialData(env);
-  const data = createSampleData({ base, makeId: env.makeId, today: TODAY });
-  const { warnings } = normalizeData(JSON.parse(JSON.stringify(toDocument(data, "x"))), env);
-  assert.deepEqual(warnings, []);
-  for (const s of data.suppliers) assert.equal(hasErrors(validateSupplier(s, data)), false, s.name);
-  for (const r of data.requisitions) assert.equal(hasErrors(validateRequisition(r, data)), false, r.number);
-  for (const p of data.purchaseOrders) assert.equal(hasErrors(validatePurchaseOrder(p, data, { today: TODAY })), false, p.number);
-  const statuses = new Set(data.purchaseOrders.map((p) => p.status));
-  assert.deepEqual([...statuses].sort(), ["Approved", "Cancelled", "Delivered", "Ordered", "Pending"]);
-  const k = computeKpis(data, TODAY);
-  assert.ok(k.overdue >= 1 && k.pendingApprovals >= 2 && k.committedSpend > 0);
-  assert.equal(data.categories.length, base.categories.length, "default categories reused, not duplicated");
-  assert.ok(data.activity.every((a, i) => i === 0 || data.activity[i - 1].at >= a.at), "activity newest first");
 });

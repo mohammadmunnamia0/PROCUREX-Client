@@ -3,7 +3,10 @@ import { Link, useSearchParams } from "react-router-dom";
 import { FiCheck, FiEdit2, FiEye, FiPackage, FiPlus, FiSend, FiShoppingCart, FiSlash, FiTrash2, FiX } from "react-icons/fi";
 import DataTable from "../../components/DataTable";
 import RowMenu from "../../components/RowMenu";
-import { EmptyState, PageHeader, SearchInput, StatusBadge, StatusChips } from "../../components/ui";
+import { EmptyState, PageHeader, SampleBadge, SearchInput, StatusBadge, StatusChips } from "../../components/ui";
+import { SourceSelect } from "../../components/SampleNotice";
+import { bySource } from "../../store/analytics";
+import { OTHER_COLOR, categoryColorMap } from "../../theme/palette";
 import { useProcurement } from "../../store/ProcurementContext";
 import { useFormatters } from "../../hooks/useFormatters";
 import { PO_STATUSES } from "../../store/schema";
@@ -74,6 +77,7 @@ export default function PurchaseOrders() {
   const [supplier, setSupplier] = useState("");
   const [category, setCategory] = useState("");
   const [overdueOnly, setOverdueOnly] = useState(params.get("overdue") === "1");
+  const [source, setSource] = useState("all");
   const [editing, setEditing] = useState(() => (params.get("new") || params.get("fromPr") ? "new" : null));
   const [preset, setPreset] = useState(() => ({ requisitionId: params.get("fromPr") || "", supplierId: params.get("supplier") || "" }));
   const [viewing, setViewing] = useState(null);
@@ -86,13 +90,14 @@ export default function PurchaseOrders() {
 
   const suppliers = useMemo(() => lookup(data.suppliers), [data.suppliers]);
   const categories = useMemo(() => lookup(data.categories), [data.categories]);
+  const categoryColors = useMemo(() => categoryColorMap(data.categories), [data.categories]);
   const prs = useMemo(() => lookup(data.requisitions), [data.requisitions]);
   const counts = useMemo(() => Object.fromEntries(PO_STATUSES.map((s) => [s, data.purchaseOrders.filter((p) => p.status === s).length])), [data.purchaseOrders]);
   const overdueCount = data.purchaseOrders.filter((p) => isOverdue(p, today)).length;
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return data.purchaseOrders.filter((p) => {
+    return bySource(data.purchaseOrders, source).filter((p) => {
       if (status && p.status !== status) return false;
       if (supplier && p.supplierId !== supplier) return false;
       if (category && p.categoryId !== category) return false;
@@ -101,10 +106,11 @@ export default function PurchaseOrders() {
       const hay = [p.number, suppliers.get(p.supplierId)?.name, prs.get(p.requisitionId)?.number, ...p.items.map((i) => i.description)];
       return hay.some((v) => v && v.toLowerCase().includes(q));
     });
-  }, [data.purchaseOrders, search, status, supplier, category, overdueOnly, suppliers, prs, today]);
+  }, [data.purchaseOrders, source, search, status, supplier, category, overdueOnly, suppliers, prs, today]);
 
-  const filtered = search || status || supplier || category || overdueOnly;
+  const filtered = search || status || supplier || category || overdueOnly || source !== "all";
   const clearFilters = () => {
+    setSource("all");
     setSearch("");
     setStatus("");
     setSupplier("");
@@ -113,7 +119,15 @@ export default function PurchaseOrders() {
   };
 
   const columns = [
-    { key: "number", header: "PO #", render: (p) => <strong>{p.number}</strong> },
+    {
+      key: "number",
+      header: "PO #",
+      render: (p) => (
+        <span className="nowrap">
+          <strong>{p.number}</strong> <SampleBadge record={p} />
+        </span>
+      ),
+    },
     {
       key: "supplier",
       header: "Supplier",
@@ -132,7 +146,17 @@ export default function PurchaseOrders() {
         );
       },
     },
-    { key: "category", header: "Category", sortValue: (p) => categories.get(p.categoryId)?.name || "", render: (p) => categories.get(p.categoryId)?.name || UNCATEGORIZED },
+    {
+      key: "category",
+      header: "Category",
+      sortValue: (p) => categories.get(p.categoryId)?.name || "",
+      render: (p) => (
+        <span className="cat-chip">
+          <span className="seg-dot" style={{ background: categoryColors.get(p.categoryId) || OTHER_COLOR }} aria-hidden="true" />
+          {categories.get(p.categoryId)?.name || UNCATEGORIZED}
+        </span>
+      ),
+    },
     { key: "orderDate", header: "Ordered", className: "nowrap", render: (p) => formatDate(p.orderDate) },
     { key: "expectedDeliveryDate", header: "Expected", className: "nowrap", render: (p) => <ExpectedDateCell po={p} today={today} /> },
     { key: "total", header: "Total", align: "right", sortValue: poTotal, render: (p) => money(poTotal(p)) },
@@ -201,6 +225,7 @@ export default function PurchaseOrders() {
                   </option>
                 ))}
               </select>
+              <SourceSelect value={source} onChange={setSource} data={data} />
               <label className="toggle">
                 <input type="checkbox" checked={overdueOnly} onChange={(e) => setOverdueOnly(e.target.checked)} />
                 Overdue only ({overdueCount})

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { FiActivity } from "react-icons/fi";
 import DataTable from "../components/DataTable";
-import { EmptyState, PageHeader, SearchInput } from "../components/ui";
+import { EmptyState, PageHeader, SampleBadge, SearchInput } from "../components/ui";
 import { useProcurement } from "../store/ProcurementContext";
 import { formatDateTime } from "../utils/dates";
 import { MAX_ACTIVITY } from "../store/schema";
@@ -21,7 +21,15 @@ export default function ActivityLog() {
     { key: "at", header: "Time", render: (a) => <time dateTime={a.at} className="nowrap">{formatDateTime(a.at)}</time> },
     { key: "entity", header: "Record type" },
     { key: "action", header: "Action", render: (a) => <span className={`badge badge-action action-${a.action.toLowerCase().replace(/\s+/g, "-")}`}>{a.action}</span> },
-    { key: "ref", header: "Reference", render: (a) => a.ref || <span className="muted">–</span> },
+    {
+      key: "ref",
+      header: "Reference",
+      render: (a) => (
+        <span className="nowrap">
+          {a.ref || <span className="muted">–</span>} <SampleBadge record={a} />
+        </span>
+      ),
+    },
     { key: "message", header: "Details", sortable: false },
   ];
 

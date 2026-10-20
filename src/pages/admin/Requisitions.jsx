@@ -3,7 +3,10 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { FiCheck, FiEdit2, FiEye, FiFileText, FiPlus, FiSlash, FiTrash2, FiX } from "react-icons/fi";
 import DataTable from "../../components/DataTable";
 import RowMenu from "../../components/RowMenu";
-import { EmptyState, PageHeader, PriorityBadge, SearchInput, StatusBadge, StatusChips } from "../../components/ui";
+import { EmptyState, PageHeader, PriorityBadge, SampleBadge, SearchInput, StatusBadge, StatusChips } from "../../components/ui";
+import { SourceSelect } from "../../components/SampleNotice";
+import { bySource } from "../../store/analytics";
+import { OTHER_COLOR, categoryColorMap } from "../../theme/palette";
 import { useProcurement } from "../../store/ProcurementContext";
 import { useFormatters } from "../../hooks/useFormatters";
 import { EDITABLE_PR_STATUSES, PRIORITIES, PR_STATUSES } from "../../store/schema";
@@ -26,6 +29,7 @@ export default function Requisitions() {
   const [status, setStatus] = useState(PR_STATUSES.includes(params.get("status")) ? params.get("status") : "");
   const [category, setCategory] = useState("");
   const [priority, setPriority] = useState("");
+  const [source, setSource] = useState("all");
   const [editing, setEditing] = useState(params.get("new") ? "new" : null);
   const [viewing, setViewing] = useState(null);
 
@@ -35,21 +39,23 @@ export default function Requisitions() {
   };
 
   const categories = useMemo(() => lookup(data.categories), [data.categories]);
+  const categoryColors = useMemo(() => categoryColorMap(data.categories), [data.categories]);
   const counts = useMemo(() => Object.fromEntries(PR_STATUSES.map((s) => [s, data.requisitions.filter((r) => r.status === s).length])), [data.requisitions]);
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return data.requisitions.filter(
+    return bySource(data.requisitions, source).filter(
       (r) =>
         (!status || r.status === status) &&
         (!category || r.categoryId === category) &&
         (!priority || r.priority === priority) &&
         (!q || [r.number, r.title, r.requestedBy, r.department].some((v) => v.toLowerCase().includes(q)))
     );
-  }, [data.requisitions, search, status, category, priority]);
+  }, [data.requisitions, source, search, status, category, priority]);
 
-  const filtered = search || status || category || priority;
+  const filtered = search || status || category || priority || source !== "all";
   const clearFilters = () => {
+    setSource("all");
     setSearch("");
     setStatus("");
     setCategory("");
@@ -57,7 +63,15 @@ export default function Requisitions() {
   };
 
   const columns = [
-    { key: "number", header: "PR #", render: (r) => <strong>{r.number}</strong> },
+    {
+      key: "number",
+      header: "PR #",
+      render: (r) => (
+        <span className="nowrap">
+          <strong>{r.number}</strong> <SampleBadge record={r} />
+        </span>
+      ),
+    },
     {
       key: "title",
       header: "Title",
@@ -70,7 +84,17 @@ export default function Requisitions() {
         </div>
       ),
     },
-    { key: "category", header: "Category", sortValue: (r) => categories.get(r.categoryId)?.name || "", render: (r) => categories.get(r.categoryId)?.name || UNCATEGORIZED },
+    {
+      key: "category",
+      header: "Category",
+      sortValue: (r) => categories.get(r.categoryId)?.name || "",
+      render: (r) => (
+        <span className="cat-chip">
+          <span className="seg-dot" style={{ background: categoryColors.get(r.categoryId) || OTHER_COLOR }} aria-hidden="true" />
+          {categories.get(r.categoryId)?.name || UNCATEGORIZED}
+        </span>
+      ),
+    },
     {
       key: "requiredDate",
       header: "Required by",
@@ -157,6 +181,7 @@ export default function Requisitions() {
                   <option key={p}>{p}</option>
                 ))}
               </select>
+              <SourceSelect value={source} onChange={setSource} data={data} />
               {filtered && (
                 <button type="button" className="btn btn-sm btn-ghost" onClick={clearFilters}>
                   Clear filters

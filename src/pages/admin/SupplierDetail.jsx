@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { FiArrowLeft, FiClock, FiDollarSign, FiEdit2, FiPlus, FiShoppingCart, FiTruck, FiUserX } from "react-icons/fi";
 import DataTable from "../../components/DataTable";
-import { DetailList, EmptyState, KpiCard, PageHeader, Stars, StatusBadge } from "../../components/ui";
+import { DetailList, EmptyState, KpiCard, PageHeader, SampleBadge, Stars, StatusBadge } from "../../components/ui";
 import { useProcurement } from "../../store/ProcurementContext";
 import { useFormatters } from "../../hooks/useFormatters";
 import { PO_STATUSES } from "../../store/schema";
@@ -45,7 +45,15 @@ export default function SupplierDetail() {
   }
 
   const columns = [
-    { key: "number", header: "PO #", render: (p) => <strong>{p.number}</strong> },
+    {
+      key: "number",
+      header: "PO #",
+      render: (p) => (
+        <span className="nowrap">
+          <strong>{p.number}</strong> <SampleBadge record={p} />
+        </span>
+      ),
+    },
     { key: "category", header: "Category", sortValue: (p) => categories.get(p.categoryId)?.name || "", render: (p) => categories.get(p.categoryId)?.name || UNCATEGORIZED },
     { key: "orderDate", header: "Ordered", className: "nowrap", render: (p) => formatDate(p.orderDate) },
     { key: "expectedDeliveryDate", header: "Expected", className: "nowrap", render: (p) => <ExpectedDateCell po={p} today={today} /> },
@@ -73,6 +81,7 @@ export default function SupplierDetail() {
         description={`${supplier.code} · ${categories.get(supplier.categoryId)?.name || "No primary category"}`}
         actions={
           <>
+            <SampleBadge record={supplier} />
             <StatusBadge status={supplier.status} />
             <button type="button" className="btn btn-outline" onClick={() => setEditingSupplier(true)}>
               <FiEdit2 /> Edit

@@ -17,8 +17,12 @@ import {
   FiUsers,
 } from "react-icons/fi";
 import MonthlySpendChart from "../components/MonthlySpendChart";
+import { StatusDonut } from "../components/Charts";
+import SampleNotice from "../components/SampleNotice";
 import { BrandMark } from "../components/Sidebar";
-import { HBarList, KpiCard, PageHeader, Sparkline, StatusBadge, initials } from "../components/ui";
+import { Avatar, HBarList, KpiCard, PageHeader, SampleBadge, Sparkline, StatusBadge } from "../components/ui";
+import { statusBreakdown } from "../store/analytics";
+import { OTHER_COLOR, categoryColorMap } from "../theme/palette";
 import { useProcurement } from "../store/ProcurementContext";
 import { useFormatters } from "../hooks/useFormatters";
 import { hasTransactionalData } from "../store/schema";
@@ -28,12 +32,11 @@ import {
   lookup,
   monthlyOrderCounts,
   monthlySpend,
-  monthOverMonth,
+  monthToDate,
   pipelineStages,
   recentPurchaseOrders,
   requisitionSummary,
   spendByCategory,
-  statusDistribution,
   supplierRows,
   upcomingDeliveries,
   UNKNOWN_SUPPLIER,
@@ -42,9 +45,6 @@ import { poTotal } from "../store/records";
 import { formatDate, formatRelative, todayISO } from "../utils/dates";
 import { formatDays, formatPercent, pluralize } from "../utils/format";
 import { ExpectedDateCell } from "./admin/PurchaseOrders";
-
-// Status colours carry state and are always paired with the status name and count.
-const STATUS_COLORS = { Pending: "#f79009", Approved: "#6366f1", Ordered: "#0ba5ec", Delivered: "#17b26a", Cancelled: "#98a2b3" };
 
 function greeting() {
   const h = new Date().getHours();
@@ -73,10 +73,11 @@ export default function Dashboard() {
     return {
       kpis: computeKpis(data, today),
       months,
-      mom: monthOverMonth(months),
+      mom: monthToDate(data.purchaseOrders, today),
       orderCounts: monthlyOrderCounts(data.purchaseOrders, today),
-      statuses: statusDistribution(data.purchaseOrders),
-      categories: spendByCategory(data, data.purchaseOrders, { limit: 6 }),
+      statuses: statusBreakdown(data.purchaseOrders, today),
+      categoryColors: categoryColorMap(data.categories),
+      categories: spendByCategory(data, data.purchaseOrders, { limit: 8 }),
       suppliers: supplierRows(data).slice(0, 5),
       attention: attentionItems(data, today),
       upcoming: upcomingDeliveries(data.purchaseOrders, today, 5),
@@ -117,6 +118,8 @@ export default function Dashboard() {
         }
       />
 
+      <SampleNotice />
+
       <div className="bento">
         {/* ---- Hero: total expenditure ---- */}
         <section className="kpi-card kpi-hero col-4 row-2" aria-label="Total expenditure">
@@ -132,7 +135,7 @@ export default function Dashboard() {
           <p className="kpi-sub">Committed spend · {pluralize(kpis.committedCount, "order")}</p>
           <span className="hero-delta">
             <TrendIcon aria-hidden="true" />
-            {mom.change === null ? `${moneyCompact(mom.current)} this month` : `${mom.change >= 0 ? "+" : ""}${mom.change.toFixed(1)}% vs last month`}
+            {mom.change === null ? `${moneyCompact(mom.current)} this month so far` : `${mom.change >= 0 ? "+" : ""}${mom.change.toFixed(1)}% vs same days last month`}
           </span>
           <div className="hero-split">
             <div className="hero-split-bar" aria-hidden="true">
@@ -205,14 +208,14 @@ export default function Dashboard() {
         </KpiCard>
 
         {/* ---- Monthly expenditure ---- */}
-        <section className="card col-8" aria-labelledby="monthly-title">
+        <section className="card col-8 chart-fill" aria-labelledby="monthly-title">
           <div className="card-header">
             <div>
               <h3 id="monthly-title">Monthly procurement expenditure</h3>
               <p className="card-subtitle">Committed spend by order month, last 12 months</p>
             </div>
-            <Link to="/reports" className="btn btn-sm btn-ghost">
-              Reports <FiArrowRight />
+            <Link to="/analytics" className="btn btn-sm btn-ghost">
+              Analytics <FiArrowRight />
             </Link>
           </div>
           <MonthlySpendChart months={m.months} money={money} moneyCompact={moneyCompact} />
@@ -223,27 +226,13 @@ export default function Dashboard() {
           <div className="card-header">
             <div>
               <h3 id="status-title">Order status</h3>
-              <p className="card-subtitle">{pluralize(kpis.totalPOs, "purchase order")}</p>
+              <p className="card-subtitle">All purchase orders · delayed = past expected date</p>
             </div>
+            <Link to="/analytics" className="btn btn-sm btn-ghost">
+              Trends <FiArrowRight />
+            </Link>
           </div>
-          <div className="segbar" aria-hidden="true">
-            {m.statuses.filter((s) => s.count > 0).map((s) => (
-              <span key={s.status} style={{ width: `${s.share}%`, background: STATUS_COLORS[s.status] }} title={`${s.status}: ${s.count}`} />
-            ))}
-          </div>
-          <ul className="seg-legend">
-            {m.statuses.map((s) => (
-              <li key={s.status}>
-                <Link to={`/admin/purchase-orders?status=${s.status}`}>
-                  <span className="seg-dot" style={{ background: STATUS_COLORS[s.status] }} aria-hidden="true" />
-                  {s.status}
-                  <span className="seg-count">{s.count}</span>
-                  <span className="seg-value">{moneyCompact(s.value)}</span>
-                  <span className="seg-share">{Math.round(s.share)}%</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <StatusDonut statuses={m.statuses} money={money} size={168} />
           <p className="card-foot muted small">
             Total ordered value {moneyCompact(m.statuses.reduce((sum, s) => sum + s.value, 0))} across all statuses
           </p>
@@ -277,7 +266,11 @@ export default function Dashboard() {
               <p className="card-subtitle">Committed spend, all time</p>
             </div>
           </div>
-          <HBarList rows={m.categories.map((c) => ({ key: c.id, label: c.name, value: c.value, sub: `${Math.round(c.share)}%` }))} formatValue={moneyCompact} emptyText="No committed spend yet" />
+          <HBarList
+            rows={m.categories.map((c) => ({ key: c.id, label: c.name, value: c.value, sub: `${Math.round(c.share)}%`, color: m.categoryColors.get(c.id) || OTHER_COLOR }))}
+            formatValue={moneyCompact}
+            emptyText="No committed spend yet"
+          />
         </section>
 
         {/* ---- Top suppliers ---- */}
@@ -297,9 +290,7 @@ export default function Dashboard() {
             <ul className="rank-list">
               {m.suppliers.map((s) => (
                 <li key={s.id}>
-                  <span className="avatar" aria-hidden="true">
-                    {initials(s.name)}
-                  </span>
+                  <Avatar name={s.name} />
                   <span className="rank-main">
                     {s.exists ? (
                       <Link to={`/admin/suppliers/${s.id}`} className="rank-name">
@@ -492,8 +483,7 @@ export default function Dashboard() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th scope="col">PO #</th>
-                  <th scope="col">Supplier</th>
+                  <th scope="col">Order</th>
                   <th scope="col">Ordered</th>
                   <th scope="col">Expected</th>
                   <th scope="col" className="num">Total</th>
@@ -504,10 +494,12 @@ export default function Dashboard() {
                 {m.recent.map((po) => (
                   <tr key={po.id}>
                     <td>
-                      <strong>{po.number}</strong>
-                    </td>
-                    <td className="truncate" title={supplierName(po.supplierId)}>
-                      {supplierName(po.supplierId)}
+                      <div className="cell-main">
+                        <span className="nowrap">
+                          <strong>{po.number}</strong> <SampleBadge record={po} />
+                        </span>
+                        <span className="cell-sub">{supplierName(po.supplierId)}</span>
+                      </div>
                     </td>
                     <td className="nowrap">{formatDate(po.orderDate)}</td>
                     <td className="nowrap">

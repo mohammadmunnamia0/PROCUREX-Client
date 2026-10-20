@@ -27,9 +27,70 @@ export function syncRequisitionStatuses(state) {
   return changed ? { ...state, requisitions } : state;
 }
 
+/**
+ * Keeps the newest MAX_ACTIVITY entries (list is newest first). When trimming,
+ * sample-data entries are dropped before the user's own history.
+ */
+export function capActivity(list) {
+  if (list.length <= MAX_ACTIVITY) return list;
+  let excess = list.length - MAX_ACTIVITY;
+  const drop = new Set();
+  for (let i = list.length - 1; i >= 0 && excess > 0; i -= 1) {
+    if (list[i].isSample) {
+      drop.add(i);
+      excess -= 1;
+    }
+  }
+  for (let i = list.length - 1; i >= 0 && excess > 0; i -= 1) {
+    if (!drop.has(i)) {
+      drop.add(i);
+      excess -= 1;
+    }
+  }
+  return list.filter((_, i) => !drop.has(i));
+}
+
+const newestFirst = (a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0);
+
 function addActivity(state, meta, entity, action, ref, message) {
   const entry = { id: meta.activityId, at: meta.at, entity, action, ref, message };
-  return { ...state, activity: [entry, ...state.activity].slice(0, MAX_ACTIVITY) };
+  return { ...state, activity: capActivity([entry, ...state.activity]) };
+}
+
+/**
+ * Removes sample (demo) records only. A sample record that one of the user's own
+ * records still uses (e.g. a user PO for a sample supplier) is kept so nothing breaks.
+ */
+export function planSampleRemoval(state) {
+  const userPOs = state.purchaseOrders.filter((p) => !p.isSample);
+  const usedPRs = new Set(userPOs.map((p) => p.requisitionId).filter(Boolean));
+  const usedSuppliers = new Set(userPOs.map((p) => p.supplierId));
+  const requisitions = state.requisitions.filter((r) => !r.isSample || usedPRs.has(r.id));
+  const suppliers = state.suppliers.filter((s) => !s.isSample || usedSuppliers.has(s.id));
+  const usedCategories = new Set(
+    [...suppliers.map((s) => s.categoryId), ...requisitions.map((r) => r.categoryId), ...userPOs.map((p) => p.categoryId)].filter(Boolean)
+  );
+  const categories = state.categories.filter((c) => !c.isSample || usedCategories.has(c.id));
+  const count = (before, after) => before.filter((r) => r.isSample).length - after.filter((r) => r.isSample).length;
+  const kept = [...requisitions, ...suppliers, ...categories].filter((r) => r.isSample).length;
+  const removed = {
+    purchaseOrders: count(state.purchaseOrders, userPOs),
+    requisitions: count(state.requisitions, requisitions),
+    suppliers: count(state.suppliers, suppliers),
+    categories: count(state.categories, categories),
+  };
+  const settings = { ...state.settings };
+  if (kept === 0) delete settings.sampleLoadedAt;
+  const next = syncRequisitionStatuses({
+    ...state,
+    settings,
+    categories,
+    suppliers,
+    requisitions,
+    purchaseOrders: userPOs,
+    activity: state.activity.filter((a) => !a.isSample),
+  });
+  return { state: next, removed, kept };
 }
 
 /** Insert or update a record, assigning a document number to new records when `kind` is given. */
@@ -161,6 +222,27 @@ export function reducer(state, action) {
       if (!r.record) return state;
       const s = syncRequisitionStatuses(r.state);
       return addActivity(s, meta, "Purchase Order", "Deleted", r.record.number, `Deleted purchase order ${r.record.number}`);
+    }
+
+    case "sample/load": {
+      // Merge the demo dataset next to the user's records; nothing existing is replaced.
+      const { sample } = action;
+      const merged = {
+        ...state,
+        settings: { ...state.settings, sampleLoadedAt: action.loadedAt },
+        categories: [...state.categories, ...sample.categories],
+        suppliers: [...state.suppliers, ...sample.suppliers],
+        requisitions: [...state.requisitions, ...sample.requisitions],
+        purchaseOrders: [...state.purchaseOrders, ...sample.purchaseOrders],
+        activity: capActivity([...sample.activity, ...state.activity].sort(newestFirst)),
+      };
+      return addActivity(syncRequisitionStatuses(merged), meta, "Data", "Sample data", "", action.message);
+    }
+    case "sample/remove": {
+      const { state: next, removed, kept } = planSampleRemoval(state);
+      const parts = `${removed.purchaseOrders} purchase orders, ${removed.requisitions} requisitions, ${removed.suppliers} suppliers`;
+      const message = `Removed sample data (${parts})${kept ? `; kept ${kept} sample records still used by your records` : ""}`;
+      return addActivity(next, meta, "Data", "Sample data", "", message);
     }
 
     case "settings/save":

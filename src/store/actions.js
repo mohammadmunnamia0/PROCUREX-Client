@@ -2,6 +2,8 @@
 //   { ok: true, record? }  or  { ok: false, error, errors? }
 // and only commits to the reducer when the operation is valid.
 import { EDITABLE_PR_STATUSES } from "./schema.js";
+import { planSampleRemoval } from "./reducer.js";
+import { countSampleRecords, describeSample } from "./sampleData.js";
 import { buildCategory, buildPurchaseOrder, buildRequisition, buildSettings, buildSupplier, text } from "./records.js";
 import {
   firstError,
@@ -195,6 +197,23 @@ export function createActions({ getState, commit, makeId, now, today }) {
     resetData(freshData) {
       commit({ type: "data/reset", data: freshData, meta: meta() });
       return { ok: true };
+    },
+
+    // ----- Sample (demo) dataset: merged next to the user's records, removable on its own -----
+    loadSample(sample) {
+      // "Loaded" means sample orders exist; a few kept sample records (still used by
+      // the user's own records) do not block a fresh load – they are reused by name.
+      if (countSampleRecords(getState()).purchaseOrders > 0) {
+        return fail("Sample data is already loaded. Use \"Reload sample data\" to refresh it.");
+      }
+      commit({ type: "sample/load", sample, loadedAt: now(), message: `Loaded sample data: ${describeSample(sample)}`, meta: meta() });
+      return { ok: true, counts: countSampleRecords(getState()) };
+    },
+    removeSample() {
+      if (countSampleRecords(getState()).total === 0) return fail("There is no sample data to remove.");
+      const { removed, kept } = planSampleRemoval(getState());
+      commit({ type: "sample/remove", meta: meta() });
+      return { ok: true, removed, kept };
     },
   };
 }

@@ -239,6 +239,22 @@ export function requisitionSummary(requisitions) {
   };
 }
 
+/**
+ * Month-to-date committed spend vs the same days of the previous month (a fair
+ * comparison while the current month is still running). change is null when the
+ * previous period had no spend.
+ */
+export function monthToDate(pos, today) {
+  const [y, m, d] = today.split("-").map(Number);
+  const prevFirst = new Date(Date.UTC(y, m - 2, 1));
+  const prevDays = new Date(Date.UTC(y, m - 1, 0)).getUTCDate();
+  const iso = (dt) => dt.toISOString().slice(0, 10);
+  const range = (from, to) => sumTotals(pos.filter((p) => isCommitted(p) && isValidDate(p.orderDate) && p.orderDate >= from && p.orderDate <= to));
+  const current = range(`${today.slice(0, 7)}-01`, today);
+  const previous = range(iso(prevFirst), iso(new Date(Date.UTC(prevFirst.getUTCFullYear(), prevFirst.getUTCMonth(), Math.min(d, prevDays)))));
+  return { current, previous, change: previous ? ((current - previous) / previous) * 100 : null };
+}
+
 /** Change in committed spend between the last two monthly buckets; null when last month was 0. */
 export function monthOverMonth(months) {
   const current = months[months.length - 1]?.total ?? 0;

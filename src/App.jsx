@@ -1,4 +1,4 @@
-import { HashRouter, Link, Route, Routes } from "react-router-dom";
+import { HashRouter, Link, Navigate, Route, Routes } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ToastProvider } from "./components/ToastProvider";
 import { ConfirmProvider } from "./components/ConfirmProvider";
@@ -6,7 +6,7 @@ import { ProcurementProvider } from "./store/ProcurementContext";
 import Layout from "./components/Layout";
 import { EmptyState } from "./components/ui";
 import Dashboard from "./pages/Dashboard";
-import Reports from "./pages/Reports";
+import Analytics from "./pages/Analytics";
 import ActivityLog from "./pages/ActivityLog";
 import AdminHome from "./pages/admin/AdminHome";
 import Requisitions from "./pages/admin/Requisitions";
@@ -29,7 +29,8 @@ export default function App() {
               <Routes>
                 <Route element={<Layout />}>
                   <Route index element={<Dashboard />} />
-                  <Route path="reports" element={<Reports />} />
+                  <Route path="analytics" element={<Analytics />} />
+                  <Route path="reports" element={<Navigate to="/analytics" replace />} />
                   <Route path="activity" element={<ActivityLog />} />
                   <Route path="admin" element={<AdminHome />} />
                   <Route path="admin/requisitions" element={<Requisitions />} />

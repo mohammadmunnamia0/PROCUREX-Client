@@ -1,7 +1,7 @@
 // Read-only detail dialogs for requisitions and purchase orders.
 import { Link } from "react-router-dom";
 import Modal from "../../components/Modal";
-import { DetailList, PriorityBadge, StatusBadge } from "../../components/ui";
+import { DetailList, PriorityBadge, SampleBadge, StatusBadge } from "../../components/ui";
 import { useProcurement } from "../../store/ProcurementContext";
 import { useFormatters } from "../../hooks/useFormatters";
 import { isOverdue, lineTotal, poAmounts, prTotal } from "../../store/records";
@@ -46,7 +46,7 @@ export function RequisitionView({ requisition: pr, onClose }) {
   const pos = data.purchaseOrders.filter((p) => p.requisitionId === pr.id);
 
   return (
-    <Modal title={`${pr.number} · ${pr.title}`} subtitle={<StatusBadge status={pr.status} />} size="lg" onClose={onClose} footer={<button type="button" className="btn btn-outline" onClick={onClose}>Close</button>}>
+    <Modal title={`${pr.number} · ${pr.title}`} subtitle={<><StatusBadge status={pr.status} /> <SampleBadge record={pr} /></>} size="lg" onClose={onClose} footer={<button type="button" className="btn btn-outline" onClick={onClose}>Close</button>}>
       <div className="grid-2 tight">
         <DetailList
           items={[
@@ -104,7 +104,7 @@ export function PurchaseOrderView({ po, onClose }) {
   }
 
   return (
-    <Modal title={`${po.number} · ${supplier?.name || UNKNOWN_SUPPLIER}`} subtitle={<StatusBadge status={po.status} />} size="lg" onClose={onClose} footer={<button type="button" className="btn btn-outline" onClick={onClose}>Close</button>}>
+    <Modal title={`${po.number} · ${supplier?.name || UNKNOWN_SUPPLIER}`} subtitle={<><StatusBadge status={po.status} /> <SampleBadge record={po} /></>} size="lg" onClose={onClose} footer={<button type="button" className="btn btn-outline" onClick={onClose}>Close</button>}>
       <div className="grid-2 tight">
         <DetailList
           items={[

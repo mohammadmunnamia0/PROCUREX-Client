@@ -1,13 +1,32 @@
 // Small presentational building blocks shared by all pages.
 import { cloneElement, isValidElement, useId } from "react";
-import { FiArrowUpRight, FiSearch, FiX } from "react-icons/fi";
+import { FiArrowDownRight, FiArrowUpRight, FiMinus, FiSearch, FiX } from "react-icons/fi";
 import { Link } from "react-router-dom";
+import { avatarColors } from "../theme/palette";
 
 const slug = (s) => String(s || "").toLowerCase().replace(/[^a-z]+/g, "-");
 
 /** Status is always shown as text + colour (never colour alone). */
 export function StatusBadge({ status }) {
   return <span className={`badge badge-status badge-${slug(status)}`}>{status}</span>;
+}
+
+/** Marks demo records so they are never confused with the user's own data. */
+export function SampleBadge({ record }) {
+  if (!record?.isSample) return null;
+  return (
+    <span className="badge badge-sample" title="Sample (demo) record – remove or reload sample data in Data & Backup">
+      Sample
+    </span>
+  );
+}
+
+export function Avatar({ name, label }) {
+  return (
+    <span className="avatar" style={avatarColors(name)} aria-hidden="true">
+      {label ?? initials(name)}
+    </span>
+  );
 }
 
 export function PriorityBadge({ priority }) {
@@ -38,8 +57,12 @@ export function EmptyState({ icon: Icon, title, message, children }) {
   );
 }
 
-/** Stat tile: icon + label, big value, sub line, optional mini visual (children). */
-export function KpiCard({ icon: Icon, tone = "blue", label, value, sub, subTone, to, className = "", children }) {
+/**
+ * Stat tile: icon + label, big value, optional change vs a previous period, sub line,
+ * optional mini visual (children). delta = { text, tone: good|bad|neutral, direction: up|down|flat, title }
+ */
+export function KpiCard({ icon: Icon, tone = "blue", label, value, sub, subTone, to, className = "", delta, children }) {
+  const DeltaIcon = delta?.direction === "up" ? FiArrowUpRight : delta?.direction === "down" ? FiArrowDownRight : FiMinus;
   const body = (
     <>
       <div className="kpi-head">
@@ -49,17 +72,26 @@ export function KpiCard({ icon: Icon, tone = "blue", label, value, sub, subTone,
         <span className="kpi-label">{label}</span>
         {to && <FiArrowUpRight className="kpi-go" aria-hidden="true" />}
       </div>
-      <p className="kpi-value">{value}</p>
+      <div className="kpi-value-row">
+        <p className="kpi-value">{value}</p>
+        {delta && (
+          <span className={`kpi-delta ${delta.tone}`} title={delta.title}>
+            <DeltaIcon aria-hidden="true" />
+            {delta.text}
+            <span className="sr-only"> {delta.title}</span>
+          </span>
+        )}
+      </div>
       {sub && <p className={`kpi-sub ${subTone ? `tone-${subTone}` : ""}`}>{sub}</p>}
       {children && <div className="kpi-extra">{children}</div>}
     </>
   );
   return to ? (
-    <Link to={to} className={`kpi-card kpi-link ${className}`}>
+    <Link to={to} className={`kpi-card kpi-link tint-${tone} ${className}`}>
       {body}
     </Link>
   ) : (
-    <div className={`kpi-card ${className}`}>{body}</div>
+    <div className={`kpi-card tint-${tone} ${className}`}>{body}</div>
   );
 }
 
@@ -170,14 +202,17 @@ export function HBarList({ rows, formatValue, emptyText = "No data yet", maxValu
       {rows.map((r) => (
         <li key={r.key ?? r.label} className="hbar-row" title={r.title}>
           <div className="hbar-text">
-            <span className="hbar-label">{r.label}</span>
+            <span className="hbar-label">
+              {r.color && <span className="seg-dot" style={{ background: r.color }} aria-hidden="true" />}
+              {r.label}
+            </span>
             <span className="hbar-value">
               {formatValue ? formatValue(r.value, r) : r.value}
               {r.sub && <span className="hbar-sub"> {r.sub}</span>}
             </span>
           </div>
           <div className="hbar-track" aria-hidden="true">
-            <div className="hbar-fill" style={{ width: `${max ? Math.max((r.value / max) * 100, r.value ? 1.5 : 0) : 0}%` }} />
+            <div className="hbar-fill" style={{ width: `${max ? Math.max((r.value / max) * 100, r.value ? 1.5 : 0) : 0}%`, ...(r.color ? { background: r.color } : {}) }} />
           </div>
         </li>
       ))}

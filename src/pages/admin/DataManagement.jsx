@@ -1,11 +1,13 @@
-import { useRef, useState } from "react";
-import { FiAlertTriangle, FiDatabase, FiDownload, FiPlayCircle, FiRotateCcw, FiTrash2, FiUpload } from "react-icons/fi";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { FiAlertTriangle, FiDatabase, FiDownload, FiLayers, FiPlayCircle, FiRefreshCw, FiRotateCcw, FiTrash2, FiUpload } from "react-icons/fi";
 import { Field, PageHeader } from "../../components/ui";
 import { useConfirm } from "../../components/ConfirmProvider";
 import { useToast } from "../../components/ToastProvider";
 import { useProcurement } from "../../store/ProcurementContext";
 import { useFormState } from "../../hooks/useFormState";
-import { CURRENCIES, hasTransactionalData } from "../../store/schema";
+import { CURRENCIES } from "../../store/schema";
+import { countSampleRecords } from "../../store/sampleData";
 import { recordCounts } from "../../store/normalize";
 import { categoriesCsv, purchaseOrdersCsv, requisitionsCsv, suppliersCsv } from "../../utils/csv";
 import { downloadCsv, downloadFile, downloadJson } from "../../utils/download";
@@ -148,18 +150,54 @@ export default function DataManagement() {
     if (!result.snapshotSaved) toast.warning("No snapshot could be kept (storage is full or unavailable).");
   }
 
+  // ----- Sample data: added next to the user's records; removal never touches them -----
   async function loadSample() {
     const ok = await confirm({
       title: "Load sample data?",
-      message: "Adds a demonstration dataset (8 suppliers, 11 requisitions, 24 purchase orders over the last year) so you can explore the dashboard. You can remove it later with Reset.",
+      message:
+        "Adds one year of demo procurement data (13 suppliers, about 100 requisitions and 120 purchase orders) next to your own records. Nothing you entered is changed, and every demo record is marked Sample.",
       confirmLabel: "Load sample data",
     });
     if (!ok) return;
     const result = dataOps.loadSampleData();
-    if (result.ok) toast.success("Sample data loaded. Open the Dashboard to explore it.");
+    if (result.ok) toast.success(`Sample data loaded: ${result.counts.purchaseOrders} purchase orders over the last 12 months.`);
     else toast.error(result.error);
   }
 
+  async function reloadSample() {
+    const ok = await confirm({
+      title: "Reload sample data?",
+      message: "Replaces the current demo records with a fresh copy dated up to today. Changes you made to sample records are discarded; your own records are not affected.",
+      confirmLabel: "Reload sample data",
+    });
+    if (!ok) return;
+    const result = dataOps.reloadSampleData();
+    if (result.ok) toast.success("Sample data reloaded with current dates.");
+    else toast.error(result.error);
+  }
+
+  async function removeSample() {
+    const ok = await confirm({
+      title: "Remove sample data?",
+      message: "Deletes every record marked Sample. Your own suppliers, requisitions and purchase orders stay exactly as they are.",
+      details: <p className="muted">A snapshot is kept, so you can undo this with "Restore previous data".</p>,
+      confirmLabel: "Remove sample data",
+      danger: true,
+    });
+    if (!ok) return;
+    const result = dataOps.removeSampleData();
+    if (!result.ok) return toast.error(result.error);
+    toast.success(`Removed ${result.removed.purchaseOrders} sample purchase orders and ${result.removed.requisitions} requisitions.`);
+    if (result.kept) toast.info(`${result.kept} sample record${result.kept === 1 ? " was" : "s were"} kept because your own records use ${result.kept === 1 ? "it" : "them"}.`);
+  }
+
+  const sample = countSampleRecords(data);
+  const sampleLoaded = sample.purchaseOrders > 0;
+  const userCounts = {
+    suppliers: data.suppliers.length - sample.suppliers,
+    requisitions: data.requisitions.length - sample.requisitions,
+    purchaseOrders: data.purchaseOrders.length - sample.purchaseOrders,
+  };
   const corrupt = dataOps.readCorrupt();
   const snapshotCounts = snapshot?.document
     ? {
@@ -172,7 +210,61 @@ export default function DataManagement() {
 
   return (
     <div>
-      <PageHeader title="Data & Backup" description="Settings, backup, import and reset for the data stored in this browser." />
+      <PageHeader title="Data & Backup" description="Sample data, settings, backup, import and reset for the data stored in this browser." />
+      <ScrollToSection />
+
+      <section className={`card sample-card ${sampleLoaded ? "is-loaded" : ""}`} id="sample-section" aria-labelledby="sample">
+        <div className="card-header">
+          <div>
+            <h3 id="sample">
+              <FiLayers aria-hidden="true" /> Sample data
+            </h3>
+            <p className="card-subtitle">One year of realistic demo procurement data, kept separate from your own records</p>
+          </div>
+          {sampleLoaded ? <span className="badge badge-sample">Loaded</span> : <span className="badge badge-gray">Not loaded</span>}
+        </div>
+        {sampleLoaded ? (
+          <>
+            <ul className="counts-list sample-counts">
+              <li>
+                <strong>{sample.purchaseOrders}</strong> sample purchase orders
+              </li>
+              <li>
+                <strong>{sample.requisitions}</strong> sample requisitions
+              </li>
+              <li>
+                <strong>{sample.suppliers}</strong> sample suppliers
+              </li>
+              <li>
+                <strong>{userCounts.purchaseOrders + userCounts.requisitions + userCounts.suppliers}</strong> of your own records
+              </li>
+            </ul>
+            <p className="muted small">
+              {data.settings.sampleLoadedAt ? `Generated ${formatDateTime(data.settings.sampleLoadedAt)}. ` : ""}Reload to bring the demo dates up to today. Removing sample data never deletes records you created; sample suppliers or requisitions that your own orders use are kept.
+            </p>
+            <div className="button-group">
+              <button type="button" className="btn btn-outline" onClick={reloadSample}>
+                <FiRefreshCw /> Reload sample data
+              </button>
+              <button type="button" className="btn btn-outline danger-text" onClick={removeSample}>
+                <FiTrash2 /> Remove sample data
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="muted">
+              Adds 13 suppliers, about 100 requisitions and 120 purchase orders spread over the last 12 months, with a realistic mix of delivered, in-transit, delayed, pending, approved and cancelled orders. It is added next to your own records (nothing is replaced) and every demo record is marked{" "}
+              <span className="badge badge-sample">Sample</span>.
+            </p>
+            <div className="button-group">
+              <button type="button" className="btn btn-primary" onClick={loadSample}>
+                <FiPlayCircle /> Load sample data
+              </button>
+            </div>
+          </>
+        )}
+      </section>
 
       <div className="grid-2">
         <section className="card" aria-labelledby="storage-status">
@@ -302,30 +394,27 @@ export default function DataManagement() {
         <SettingsForm key={JSON.stringify(data.settings)} />
       </section>
 
-      {!hasTransactionalData(data) && (
-        <section className="card" aria-labelledby="sample">
-          <div className="card-header">
-            <h3 id="sample">Sample data</h3>
-            <span className="badge badge-gray">Demo only</span>
-          </div>
-          <p className="muted">Want to explore first? Load a clearly labelled demonstration dataset. This option disappears once you have your own records.</p>
-          <button type="button" className="btn btn-outline" onClick={loadSample}>
-            <FiPlayCircle /> Load sample data
-          </button>
-        </section>
-      )}
-
       <section className="card danger-zone" aria-labelledby="reset">
         <div className="card-header">
           <h3 id="reset">
             <FiDatabase aria-hidden="true" /> Reset local data
           </h3>
         </div>
-        <p className="muted">Permanently delete all records stored in this browser and start again with the default categories.</p>
+        <p className="muted">Permanently delete all records stored in this browser (your own and sample data) and start again, empty, with the default categories.</p>
         <button type="button" className="btn btn-danger" onClick={reset}>
           <FiTrash2 /> Reset all local data…
         </button>
       </section>
     </div>
   );
+}
+
+/** Scrolls to the sample-data card when opened via "Manage sample data" (?section=sample). */
+function ScrollToSection() {
+  const [params] = useSearchParams();
+  const section = params.get("section");
+  useEffect(() => {
+    if (section === "sample") document.getElementById("sample-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [section]);
+  return null;
 }

@@ -6,10 +6,10 @@ import { createId } from "../utils/id";
 import { todayISO } from "../utils/dates";
 import { createActions } from "./actions";
 import { reducer } from "./reducer";
-import { STORAGE_KEYS, createInitialData, hasTransactionalData } from "./schema";
+import { STORAGE_KEYS, createInitialData } from "./schema";
 import { createStorage, getBrowserStorage, loadInitialData } from "./storage";
 import { normalizeData, parseBackup, recordCounts, toDocument } from "./normalize";
-import { createSampleData } from "./sampleData";
+import { generateSampleData } from "./sampleData";
 
 const ProcurementContext = createContext(null);
 
@@ -20,7 +20,8 @@ export function ProcurementProvider({ children }) {
   if (!storageRef.current) storageRef.current = createStorage(getBrowserStorage());
   const storage = storageRef.current;
 
-  const [initial] = useState(() => loadInitialData(storage, env));
+  // A browser with no saved data starts with the flagged sample dataset (SRS FR-B8).
+  const [initial] = useState(() => loadInitialData(storage, env, { seedSample: true }));
   const [data, setData] = useState(initial.data);
   const dataRef = useRef(initial.data);
 
@@ -136,11 +137,23 @@ export function ProcurementProvider({ children }) {
         actions.resetData(createInitialData(env));
         return { ok: true, snapshotSaved };
       },
+      // Sample data is merged next to the user's records and removed on its own.
       loadSampleData() {
-        if (hasTransactionalData(dataRef.current)) return { ok: false, error: "Sample data can only be loaded when there are no suppliers, requisitions or purchase orders." };
-        const sample = createSampleData({ base: dataRef.current, makeId: env.makeId, today: env.today() });
-        actions.replaceData(sample, { label: "Sample data", message: "Loaded sample data for demonstration" });
-        return { ok: true };
+        const sample = generateSampleData({ today: env.today(), now: env.now(), makeId: env.makeId, existing: dataRef.current });
+        takeSnapshot("sample data load");
+        return actions.loadSample(sample);
+      },
+      removeSampleData() {
+        takeSnapshot("sample data removal");
+        return actions.removeSample();
+      },
+      reloadSampleData() {
+        takeSnapshot("sample data reload");
+        const removed = actions.removeSample();
+        if (!removed.ok) return removed;
+        const sample = generateSampleData({ today: env.today(), now: env.now(), makeId: env.makeId, existing: dataRef.current });
+        const loaded = actions.loadSample(sample);
+        return { ...loaded, kept: removed.kept };
       },
       retrySave: () => persist(dataRef.current),
       usage: () => storage.usage(),

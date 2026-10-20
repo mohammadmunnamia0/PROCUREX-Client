@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { FiCheck, FiCheckCircle, FiEye, FiInfo, FiX } from "react-icons/fi";
-import { EmptyState, PageHeader, PriorityBadge } from "../../components/ui";
+import { EmptyState, PageHeader, PriorityBadge, SampleBadge } from "../../components/ui";
 import { useProcurement } from "../../store/ProcurementContext";
 import { useFormatters } from "../../hooks/useFormatters";
 import { attentionItems, lookup, UNCATEGORIZED, UNKNOWN_SUPPLIER } from "../../store/metrics";
@@ -50,7 +50,7 @@ export default function Approvals() {
               <li key={pr.id} className="approval-item">
                 <div className="approval-main">
                   <div className="approval-title">
-                    <strong>{pr.number}</strong> {pr.title} <PriorityBadge priority={pr.priority} />
+                    <strong>{pr.number}</strong> {pr.title} <PriorityBadge priority={pr.priority} /> <SampleBadge record={pr} />
                   </div>
                   <p className="cell-sub">
                     {pr.requestedBy} · {pr.department} · {categories.get(pr.categoryId)?.name || UNCATEGORIZED} · requested {age(days)} · needed by {formatDate(pr.requiredDate)}
@@ -89,7 +89,7 @@ export default function Approvals() {
               <li key={po.id} className="approval-item">
                 <div className="approval-main">
                   <div className="approval-title">
-                    <strong>{po.number}</strong> {suppliers.get(po.supplierId)?.name || UNKNOWN_SUPPLIER}
+                    <strong>{po.number}</strong> {suppliers.get(po.supplierId)?.name || UNKNOWN_SUPPLIER} <SampleBadge record={po} />
                   </div>
                   <p className="cell-sub">
                     {categories.get(po.categoryId)?.name || UNCATEGORIZED} · {pluralize(po.items.length, "item")} · ordered {formatDate(po.orderDate)} ({age(days)}) · expected {formatDate(po.expectedDeliveryDate)}

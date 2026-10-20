@@ -6,7 +6,6 @@ import {
   APP_ID,
   CURRENCIES,
   DEFAULT_SETTINGS,
-  MAX_ACTIVITY,
   PAYMENT_TERMS,
   PO_STATUSES,
   PRIORITIES,
@@ -14,8 +13,8 @@ import {
   SCHEMA_VERSION,
   SUPPLIER_STATUSES,
 } from "./schema.js";
-import { formatDocNumber, parseDocNumber, round2 } from "./records.js";
-import { syncRequisitionStatuses } from "./reducer.js";
+import { formatDocNumber, formatSampleNumber, parseDocNumber, parseSampleNumber, round2 } from "./records.js";
+import { capActivity, syncRequisitionStatuses } from "./reducer.js";
 
 export const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
 const COLLECTIONS = ["categories", "suppliers", "requisitions", "purchaseOrders"];
@@ -49,7 +48,9 @@ function normalizeItems(raw, makeId) {
 
 function base(raw, makeId, at) {
   const createdAt = iso(raw.createdAt, at);
-  return { id: str(raw.id, 80) || makeId(), createdAt, updatedAt: iso(raw.updatedAt, createdAt) };
+  const record = { id: str(raw.id, 80) || makeId(), createdAt, updatedAt: iso(raw.updatedAt, createdAt) };
+  if (raw.isSample === true) record.isSample = true; // demo records are flagged; user records have no flag
+  return record;
 }
 
 const dateOf = (isoString, fallback) => (typeof isoString === "string" && isValidDate(isoString.slice(0, 10)) ? isoString.slice(0, 10) : fallback);
@@ -153,18 +154,32 @@ const NORMALIZERS = {
   purchaseOrders: [normalizePurchaseOrder, "purchase order", "purchase orders"],
 };
 
-/** Gives records without a valid document number the next free number. */
+/**
+ * Gives records without a valid, unique document number the next free number.
+ * User records use the main series (counter); sample records keep their own "S" series.
+ */
 function assignNumbers(list, kind, field, counter) {
   const seen = new Set();
   let max = counter;
-  for (const r of list) max = Math.max(max, parseDocNumber(kind, r[field]));
+  let maxSample = 0;
+  for (const r of list) {
+    if (r.isSample) maxSample = Math.max(maxSample, parseSampleNumber(kind, r[field]));
+    else max = Math.max(max, parseDocNumber(kind, r[field]));
+  }
   const result = list.map((r) => {
-    if (parseDocNumber(kind, r[field]) > 0 && !seen.has(r[field])) {
+    const valid = r.isSample ? parseSampleNumber(kind, r[field]) > 0 : parseDocNumber(kind, r[field]) > 0;
+    if (valid && !seen.has(r[field])) {
       seen.add(r[field]);
       return r;
     }
-    max += 1;
-    const value = formatDocNumber(kind, max);
+    let value;
+    if (r.isSample) {
+      maxSample += 1;
+      value = formatSampleNumber(kind, maxSample);
+    } else {
+      max += 1;
+      value = formatDocNumber(kind, max);
+    }
     seen.add(value);
     return { ...r, [field]: value };
   });
@@ -186,6 +201,10 @@ export function normalizeData(raw, { makeId, now, today }) {
     currency: CURRENCIES.some((c) => c.code === settingsSrc.currency) ? settingsSrc.currency : DEFAULT_SETTINGS.currency,
     userName: str(settingsSrc.userName, 80),
   };
+  // When the sample dataset was generated (used to offer a date refresh); internal, not a form field.
+  if (typeof settingsSrc.sampleLoadedAt === "string" && !Number.isNaN(Date.parse(settingsSrc.sampleLoadedAt))) {
+    settings.sampleLoadedAt = settingsSrc.sampleLoadedAt;
+  }
 
   const data = { settings };
   for (const key of COLLECTIONS) {
@@ -234,9 +253,10 @@ export function normalizeData(raw, { makeId, now, today }) {
       action: str(a.action, 40) || "Updated",
       ref: str(a.ref, 40),
       message: str(a.message, 500),
+      ...(a.isSample === true ? { isSample: true } : {}),
     }))
-    .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
-    .slice(0, MAX_ACTIVITY);
+    .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+  data.activity = capActivity(data.activity);
 
   return { data: syncRequisitionStatuses(data), warnings };
 }

@@ -30,7 +30,7 @@ export default function MonthlySpendChart({ months, money, moneyCompact }) {
   const hasData = months.some((m) => m.total > 0);
 
   return (
-    <div>
+    <div className="monthly-chart">
       <div className="chart-controls">
         <div className="legend" aria-hidden={view === "table"}>
           <span className="legend-item">

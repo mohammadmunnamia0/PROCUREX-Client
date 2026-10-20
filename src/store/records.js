@@ -27,6 +27,15 @@ export function isOverdue(po, today) {
   return po.status === "Ordered" && isValidDate(po.expectedDeliveryDate) && po.expectedDeliveryDate < today;
 }
 
+/**
+ * Status shown in analytics: "Ordered" splits into "In transit" and "Delayed"
+ * (ordered and past the expected delivery date). Never stored.
+ */
+export function displayStatus(po, today) {
+  if (po.status === "Ordered") return isOverdue(po, today) ? "Delayed" : "In transit";
+  return po.status;
+}
+
 /** true / false for delivered POs with dates, otherwise null. */
 export function isOnTime(po) {
   if (po.status !== "Delivered" || !isValidDate(po.actualDeliveryDate) || !isValidDate(po.expectedDeliveryDate)) return null;
@@ -42,6 +51,18 @@ export function formatDocNumber(kind, n) {
 export function parseDocNumber(kind, value) {
   const { prefix } = DOC_PREFIX[kind];
   const match = new RegExp(`^${prefix}-(\\d+)$`).exec(String(value ?? ""));
+  return match ? Number(match[1]) : 0;
+}
+
+/** Sample (demo) records use their own series, e.g. "PO-S0012", so user numbering is never affected. */
+export function formatSampleNumber(kind, n) {
+  const { prefix, width } = DOC_PREFIX[kind];
+  return `${prefix}-S${String(n).padStart(width, "0")}`;
+}
+
+export function parseSampleNumber(kind, value) {
+  const { prefix } = DOC_PREFIX[kind];
+  const match = new RegExp(`^${prefix}-S(\\d+)$`).exec(String(value ?? ""));
   return match ? Number(match[1]) : 0;
 }
 

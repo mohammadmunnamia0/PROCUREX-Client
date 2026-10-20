@@ -3,6 +3,8 @@
 // browser storage.
 import { STORAGE_KEYS, createInitialData } from "./schema.js";
 import { normalizeData, toDocument } from "./normalize.js";
+import { reducer } from "./reducer.js";
+import { describeSample, generateSampleData } from "./sampleData.js";
 
 export function getBrowserStorage() {
   try {
@@ -98,17 +100,32 @@ export function createStorage(backend) {
   };
 }
 
+/** First-run document: default categories plus, optionally, the flagged sample dataset. */
+export function createFirstRunData(env, { seedSample = false } = {}) {
+  const initial = createInitialData(env);
+  if (!seedSample) return initial;
+  const sample = generateSampleData({ today: env.today(), now: env.now(), makeId: env.makeId, existing: initial });
+  return reducer(initial, {
+    type: "sample/load",
+    sample,
+    loadedAt: env.now(),
+    message: `Sample data loaded on first visit: ${describeSample(sample)}`,
+    meta: { at: env.now(), activityId: env.makeId() },
+  });
+}
+
 /**
- * Startup load sequence (SRS §9.4).
+ * Startup load sequence (SRS §9.4). Only a browser with no saved data at all gets
+ * the first-run document (with sample data when `seedSample`); saved data is never replaced.
  * @returns {{ data, status: 'new'|'ok'|'repaired'|'corrupt'|'unavailable', warnings: string[], needsSave: boolean }}
  */
-export function loadInitialData(storage, env) {
+export function loadInitialData(storage, env, options = {}) {
   if (!storage.isAvailable()) {
-    return { data: createInitialData(env), status: "unavailable", warnings: [], needsSave: false };
+    return { data: createFirstRunData(env, options), status: "unavailable", warnings: [], needsSave: false };
   }
   const raw = storage.readData();
   if (raw === null || raw === "") {
-    return { data: createInitialData(env), status: "new", warnings: [], needsSave: true };
+    return { data: createFirstRunData(env, options), status: "new", warnings: [], needsSave: true };
   }
   let parsed;
   try {

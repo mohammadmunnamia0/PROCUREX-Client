@@ -2,7 +2,9 @@ import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { FiEdit2, FiEye, FiPlus, FiTrash2, FiUsers } from "react-icons/fi";
 import DataTable from "../../components/DataTable";
-import { EmptyState, PageHeader, SearchInput, Stars, StatusBadge } from "../../components/ui";
+import { Avatar, EmptyState, PageHeader, SampleBadge, SearchInput, Stars, StatusBadge } from "../../components/ui";
+import { SourceSelect } from "../../components/SampleNotice";
+import { bySource } from "../../store/analytics";
 import { useConfirm } from "../../components/ConfirmProvider";
 import { useToast } from "../../components/ToastProvider";
 import { useProcurement } from "../../store/ProcurementContext";
@@ -22,6 +24,7 @@ export default function Suppliers() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
+  const [source, setSource] = useState("all");
   const [editing, setEditing] = useState(params.get("new") ? "new" : null);
 
   const closeForm = () => {
@@ -35,13 +38,13 @@ export default function Suppliers() {
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return data.suppliers.filter(
+    return bySource(data.suppliers, source).filter(
       (s) =>
         (!status || s.status === status) &&
         (!category || s.categoryId === category) &&
         (!q || [s.code, s.name, s.contactPerson, s.email, s.phone, s.city, s.country].some((v) => v && v.toLowerCase().includes(q)))
     );
-  }, [data.suppliers, search, status, category]);
+  }, [data.suppliers, source, search, status, category]);
 
   async function remove(supplier) {
     const ok = await confirm({
@@ -56,22 +59,34 @@ export default function Suppliers() {
     else toast.error(result.error);
   }
 
-  const filtered = search || status || category;
+  const filtered = search || status || category || source !== "all";
   const clearFilters = () => {
+    setSource("all");
     setSearch("");
     setStatus("");
     setCategory("");
   };
 
   const columns = [
-    { key: "code", header: "Code", render: (s) => <strong>{s.code}</strong> },
+    {
+      key: "code",
+      header: "Code",
+      render: (s) => (
+        <span className="nowrap">
+          <strong>{s.code}</strong> <SampleBadge record={s} />
+        </span>
+      ),
+    },
     {
       key: "name",
       header: "Supplier",
       render: (s) => (
-        <div className="cell-main">
-          <Link to={`/admin/suppliers/${s.id}`}>{s.name}</Link>
-          <span className="cell-sub">{[s.contactPerson, s.email].filter(Boolean).join(" · ")}</span>
+        <div className="cell-with-avatar">
+          <Avatar name={s.name} />
+          <div className="cell-main">
+            <Link to={`/admin/suppliers/${s.id}`}>{s.name}</Link>
+            <span className="cell-sub">{[s.contactPerson, s.email].filter(Boolean).join(" · ")}</span>
+          </div>
         </div>
       ),
     },
@@ -139,6 +154,7 @@ export default function Suppliers() {
                   </option>
                 ))}
               </select>
+              <SourceSelect value={source} onChange={setSource} data={data} />
               {filtered && (
                 <button type="button" className="btn btn-sm btn-ghost" onClick={clearFilters}>
                   Clear filters

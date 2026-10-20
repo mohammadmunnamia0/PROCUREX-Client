@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { FiEdit2, FiPlus, FiTag, FiTrash2 } from "react-icons/fi";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
-import { EmptyState, Field, PageHeader } from "../../components/ui";
+import { EmptyState, Field, PageHeader, SampleBadge } from "../../components/ui";
+import { OTHER_COLOR, categoryColorMap } from "../../theme/palette";
 import { useConfirm } from "../../components/ConfirmProvider";
 import { useToast } from "../../components/ToastProvider";
 import { useProcurement } from "../../store/ProcurementContext";
@@ -61,6 +62,7 @@ export default function Categories() {
   const toast = useToast();
   const [editing, setEditing] = useState(null);
   const stats = useMemo(() => categoryStats(data), [data]);
+  const colors = useMemo(() => categoryColorMap(data.categories), [data.categories]);
   const statOf = (id) => stats.get(id);
 
   async function remove(category) {
@@ -72,7 +74,16 @@ export default function Categories() {
   }
 
   const columns = [
-    { key: "name", header: "Category", render: (c) => <strong>{c.name}</strong> },
+    {
+      key: "name",
+      header: "Category",
+      render: (c) => (
+        <span className="cat-chip">
+          <span className="seg-dot" style={{ background: colors.get(c.id) || OTHER_COLOR }} aria-hidden="true" />
+          <strong>{c.name}</strong> <SampleBadge record={c} />
+        </span>
+      ),
+    },
     { key: "description", header: "Description", render: (c) => c.description || <span className="muted">–</span> },
     { key: "suppliers", header: "Suppliers", align: "right", sortValue: (c) => statOf(c.id).suppliers, render: (c) => statOf(c.id).suppliers },
     { key: "requisitions", header: "Requisitions", align: "right", sortValue: (c) => statOf(c.id).requisitions, render: (c) => statOf(c.id).requisitions },

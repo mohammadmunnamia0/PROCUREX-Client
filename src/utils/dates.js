@@ -38,8 +38,31 @@ export function addDays(value, days) {
 
 export const monthKey = (value) => value.slice(0, 7);
 
-const monthFormatter = new Intl.DateTimeFormat(undefined, { month: "short", year: "2-digit", timeZone: "UTC" });
+const monthShortFormatter = new Intl.DateTimeFormat(undefined, { month: "short", timeZone: "UTC" });
 const monthLongFormatter = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
+const dayMonthFormatter = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", timeZone: "UTC" });
+
+/** "Oct ’26" – avoids "Oct 26", which reads like a date. */
+export const monthLabel = (dt) => `${monthShortFormatter.format(dt)} ’${String(dt.getUTCFullYear()).slice(2)}`;
+export const monthLongLabel = (dt) => monthLongFormatter.format(dt);
+export const dayMonthLabel = (value) => dayMonthFormatter.format(new Date(toUTC(value)));
+
+/** First day of the month `monthsBack` months before the month of `value`. */
+export function firstOfMonth(value, monthsBack = 0) {
+  const [y, m] = value.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1 - monthsBack, 1)).toISOString().slice(0, 10);
+}
+
+export function lastOfMonth(value) {
+  const [y, m] = value.split("-").map(Number);
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+}
+
+/** Monday of the week containing `value`. */
+export function startOfWeek(value) {
+  const day = new Date(toUTC(value)).getUTCDay(); // 0 = Sunday
+  return addDays(value, -((day + 6) % 7));
+}
 
 /** The last `count` calendar months ending with the month of `today`, oldest first. */
 export function lastNMonths(today, count) {
@@ -48,7 +71,7 @@ export function lastNMonths(today, count) {
   for (let i = count - 1; i >= 0; i -= 1) {
     const dt = new Date(Date.UTC(y, m - 1 - i, 1));
     const key = dt.toISOString().slice(0, 7);
-    months.push({ key, label: monthFormatter.format(dt), longLabel: monthLongFormatter.format(dt) });
+    months.push({ key, label: monthLabel(dt), longLabel: monthLongLabel(dt) });
   }
   return months;
 }

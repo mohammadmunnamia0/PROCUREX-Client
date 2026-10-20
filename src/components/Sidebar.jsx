@@ -1,13 +1,13 @@
 import { Link, NavLink } from "react-router-dom";
 import {
   FiActivity,
-  FiBarChart2,
   FiBox,
   FiCheckSquare,
   FiDatabase,
   FiFileText,
   FiGrid,
   FiHome,
+  FiPieChart,
   FiSettings,
   FiShoppingCart,
   FiTag,
@@ -21,7 +21,7 @@ import { initials } from "./ui";
 const NAV = [
   { section: "Overview" },
   { path: "/", icon: FiHome, label: "Dashboard", end: true },
-  { path: "/reports", icon: FiBarChart2, label: "Reports" },
+  { path: "/analytics", icon: FiPieChart, label: "Analytics" },
   { path: "/activity", icon: FiActivity, label: "Activity Log" },
   { section: "Admin Panel" },
   { path: "/admin", icon: FiGrid, label: "Admin Overview", end: true },
