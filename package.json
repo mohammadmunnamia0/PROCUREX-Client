@@ -1,18 +1,18 @@
 {
-  "name": "client",
-  "version": "1.0.0",
-  "main": "index.js",
+  "name": "procurex",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "PROCUREX – browser-based Supply Chain Procurement Management System (no backend, data stored in localStorage)",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "start": "node scripts/vite.js",
+    "dev": "node scripts/vite.js",
+    "build": "node scripts/vite.js build && node scripts/vite.js build --mode standalone",
+    "preview": "node scripts/vite.js preview",
+    "test": "node --test \"tests/**/*.test.js\""
   },
-  "keywords": [],
-  "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
-    "axios": "^1.13.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-icons": "^5.5.0",

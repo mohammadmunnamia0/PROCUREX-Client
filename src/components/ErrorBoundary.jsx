@@ -20,14 +20,15 @@ export default class ErrorBoundary extends Component {
         <div className="error-boundary">
           <h2>Something went wrong</h2>
           <p>{this.state.error?.message || "An unexpected error occurred"}</p>
+          <p className="muted">Your saved data has not been affected.</p>
           <button
             className="btn btn-primary"
             onClick={() => {
               this.setState({ hasError: false, error: null });
-              window.location.href = "/";
+              window.location.hash = "#/";
             }}
           >
-            Go to Dashboard
+            Back to Dashboard
           </button>
         </div>
       );

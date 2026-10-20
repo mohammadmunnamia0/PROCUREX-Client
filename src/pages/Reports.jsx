@@ -1,217 +1,136 @@
-import { useState, useEffect } from "react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
-import { FiBarChart2 } from "react-icons/fi";
-import { getSpendByCategory, getVendorOnTimeReport, getDashboard } from "../services/api";
-
-const COLORS = ["#1e40af", "#059669", "#dc2626", "#f59e0b", "#0891b2", "#7c3aed", "#db2777", "#ea580c"];
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { FiBarChart2, FiCheckCircle, FiClock, FiDollarSign, FiDownload, FiShoppingCart, FiTrendingUp } from "react-icons/fi";
+import DataTable from "../components/DataTable";
+import { EmptyState, HBarList, KpiCard, PageHeader, Stars, StatusBadge } from "../components/ui";
+import { useProcurement } from "../store/ProcurementContext";
+import { useFormatters } from "../hooks/useFormatters";
+import { computeReport, PERIODS } from "../store/metrics";
+import { formatDate, todayISO } from "../utils/dates";
+import { formatDays, formatPercent, pluralize } from "../utils/format";
+import { categorySpendCsv, supplierScorecardCsv } from "../utils/csv";
+import { downloadCsv } from "../utils/download";
 
 export default function Reports() {
-  const [spendByCategory, setSpendByCategory] = useState([]);
-  const [vendorPerf, setVendorPerf] = useState([]);
-  const [dashboard, setDashboard] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data } = useProcurement();
+  const { money, moneyCompact } = useFormatters();
+  const [period, setPeriod] = useState("all");
+  const today = todayISO();
+  const report = useMemo(() => computeReport(data, period, today), [data, period, today]);
+  const { kpis } = report;
+  const periodLabel = PERIODS.find((p) => p.key === period).label;
+  const rangeText = report.range ? `${formatDate(report.range.from)} – ${formatDate(report.range.to)}` : "All recorded orders";
 
-  useEffect(() => {
-    Promise.all([getSpendByCategory(), getVendorOnTimeReport(), getDashboard()])
-      .then(([catRes, perfRes, dashRes]) => {
-        setSpendByCategory(catRes.data);
-        setVendorPerf(perfRes.data);
-        setDashboard(dashRes.data);
-      })
-      .catch((err) => console.error("Failed to load reports:", err.response?.data?.message || err.message))
-      .finally(() => setLoading(false));
-  }, []);
+  const supplierColumns = [
+    {
+      key: "name",
+      header: "Supplier",
+      render: (r) => (
+        <div className="cell-main">
+          {r.exists ? <Link to={`/admin/suppliers/${r.id}`}>{r.name}</Link> : <span className="muted">{r.name}</span>}
+          <span className="cell-sub">{r.code}</span>
+        </div>
+      ),
+    },
+    { key: "status", header: "Status", render: (r) => (r.status ? <StatusBadge status={r.status} /> : "–") },
+    { key: "poCount", header: "POs", align: "right" },
+    { key: "committedSpend", header: "Spend", align: "right", render: (r) => money(r.committedSpend) },
+    { key: "share", header: "Share", align: "right", render: (r) => formatPercent(r.share) },
+    { key: "deliveredCount", header: "Delivered", align: "right" },
+    { key: "onTimeRate", header: "On-time", align: "right", render: (r) => formatPercent(r.onTimeRate) },
+    { key: "avgLeadTime", header: "Avg lead time", align: "right", render: (r) => formatDays(r.avgLeadTime) },
+    { key: "rating", header: "Rating", render: (r) => (r.rating ? <Stars rating={r.rating} /> : "–") },
+  ];
 
-  if (loading) {
-    return <div className="loading"><div className="spinner" />Loading reports...</div>;
-  }
-
-  const vendorChartData = vendorPerf
-    .filter((v) => v.vendor)
-    .map((v) => ({
-      name: v.vendor.name,
-      onTime: v.onTimePercentage,
-      fillRate: v.orderFillRate,
-      avgLead: v.averageLeadTime,
-    }));
-
-  const categoryPieData = spendByCategory.map((c) => ({
-    name: c._id || "Uncategorized",
-    value: c.totalSpend,
-  }));
+  const categoryColumns = [
+    { key: "name", header: "Category", render: (r) => <strong>{r.name}</strong> },
+    { key: "count", header: "POs", align: "right" },
+    { key: "value", header: "Committed spend", align: "right", render: (r) => money(r.value) },
+    { key: "share", header: "Share", align: "right", render: (r) => formatPercent(r.share) },
+  ];
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h2>Procurement Reports</h2>
-          <p>KPIs and analytics across procurement operations</p>
+      <PageHeader title="Procurement Reports" description="Spend and supplier performance for a chosen period (based on PO order date)." />
+
+      <div className="filter-row">
+        <div className="segmented" role="group" aria-label="Report period">
+          {PERIODS.map((p) => (
+            <button key={p.key} type="button" className={period === p.key ? "active" : ""} aria-pressed={period === p.key} onClick={() => setPeriod(p.key)}>
+              {p.label}
+            </button>
+          ))}
         </div>
+        <span className="muted small">{rangeText}</span>
       </div>
 
-      {/* KPI Summary */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon green"><FiBarChart2 /></div>
-          <div className="stat-info">
-            <h4>₹{((dashboard?.totalSpend || 0) / 1000).toFixed(1)}K</h4>
-            <p>Total Spend</p>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon blue"><FiBarChart2 /></div>
-          <div className="stat-info">
-            <h4>{dashboard?.counts?.totalPRs || 0}</h4>
-            <p>Total PRs</p>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon cyan"><FiBarChart2 /></div>
-          <div className="stat-info">
-            <h4>{dashboard?.counts?.totalPOs || 0}</h4>
-            <p>Total POs</p>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon yellow"><FiBarChart2 /></div>
-          <div className="stat-info">
-            <h4>{dashboard?.avgLeadTime || 0}d</h4>
-            <p>Avg Lead Time</p>
-          </div>
-        </div>
+      <div className="kpi-grid">
+        <KpiCard icon={FiDollarSign} tone="green" label="Committed spend" value={moneyCompact(kpis.committedSpend)} sub={money(kpis.committedSpend)} />
+        <KpiCard icon={FiShoppingCart} label="Purchase orders" value={kpis.poCount} sub={`${pluralize(kpis.requisitionCount, "requisition")} raised`} />
+        <KpiCard icon={FiTrendingUp} tone="cyan" label="Average PO value" value={kpis.avgPOValue === null ? "–" : moneyCompact(kpis.avgPOValue)} sub="Committed orders only" />
+        <KpiCard icon={FiCheckCircle} tone="green" label="On-time delivery" value={formatPercent(kpis.onTimeRate)} sub="Delivered on or before expected date" />
+        <KpiCard icon={FiClock} tone="amber" label="Average lead time" value={formatDays(kpis.avgLeadTime)} sub="Order date → delivery date" />
+        <KpiCard icon={FiBarChart2} tone="gray" label="Average approval time" value={formatDays(kpis.avgApprovalDays)} sub="Requisition request → decision" />
       </div>
 
       <div className="grid-2">
-        {/* Spend by Category */}
-        <div className="card">
-          <div className="card-header"><h3>Spend by Category</h3></div>
-          {categoryPieData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={categoryPieData} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                  {categoryPieData.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(val) => `₹${val.toLocaleString()}`} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="empty-state"><p>No category data</p></div>
-          )}
-        </div>
-
-        {/* Spend by Category Table */}
-        <div className="card">
-          <div className="card-header"><h3>Category Breakdown</h3></div>
-          {spendByCategory.length > 0 ? (
-            <div className="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Category</th>
-                    <th>Orders</th>
-                    <th>Total Spend</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {spendByCategory.map((c, i) => (
-                    <tr key={i}>
-                      <td>{c._id || "Uncategorized"}</td>
-                      <td>{c.orderCount}</td>
-                      <td>₹{c.totalSpend?.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <section className="card" aria-labelledby="cat-chart">
+          <div className="card-header">
+            <div>
+              <h3 id="cat-chart">Spend by category</h3>
+              <p className="card-subtitle">{periodLabel}</p>
             </div>
-          ) : (
-            <div className="empty-state"><p>No data</p></div>
-          )}
-        </div>
-      </div>
-
-      {/* Vendor Performance Chart */}
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="card-header"><h3>Vendor On-Time Delivery Performance</h3></div>
-        {vendorChartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={vendorChartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis domain={[0, 100]} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="onTime" name="On-Time %" fill="#059669" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="fillRate" name="Fill Rate %" fill="#1e40af" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="empty-state"><p>No vendor performance data</p></div>
-        )}
-      </div>
-
-      {/* Vendor Performance Table */}
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="card-header"><h3>Vendor Scorecard Summary</h3></div>
-        {vendorPerf.length > 0 ? (
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Vendor</th>
-                  <th>ID</th>
-                  <th>Status</th>
-                  <th>Orders</th>
-                  <th>On-Time %</th>
-                  <th>Late</th>
-                  <th>Avg Lead Time</th>
-                  <th>Fill Rate</th>
-                  <th>Risk</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vendorPerf.filter((v) => v.vendor).map((v) => (
-                  <tr key={v._id}>
-                    <td><strong>{v.vendor.name}</strong></td>
-                    <td>{v.vendor.vendorId}</td>
-                    <td>
-                      <span className={`badge ${v.vendor.status === "Active" ? "badge-green" : "badge-red"}`}>
-                        {v.vendor.status}
-                      </span>
-                    </td>
-                    <td>{v.totalOrders}</td>
-                    <td>{v.onTimePercentage}%</td>
-                    <td>{v.lateDeliveries}</td>
-                    <td>{v.averageLeadTime}d</td>
-                    <td>{v.orderFillRate}%</td>
-                    <td>
-                      <span className={`badge ${v.riskLevel === "Low" ? "badge-green" : v.riskLevel === "Moderate" ? "badge-yellow" : "badge-red"}`}>
-                        {v.riskLevel}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-        ) : (
-          <div className="empty-state"><p>No vendor performance data</p></div>
-        )}
+          <HBarList rows={report.categories.map((c) => ({ key: c.id, label: c.name, value: c.value, sub: `${Math.round(c.share)}%` }))} formatValue={moneyCompact} emptyText="No committed spend in this period" />
+        </section>
+        <section className="card" aria-labelledby="sup-chart">
+          <div className="card-header">
+            <div>
+              <h3 id="sup-chart">Spend by supplier</h3>
+              <p className="card-subtitle">{periodLabel}</p>
+            </div>
+          </div>
+          <HBarList rows={report.suppliers.slice(0, 8).map((s) => ({ key: s.id, label: s.name, value: s.committedSpend, sub: `${Math.round(s.share)}%` }))} formatValue={moneyCompact} emptyText="No committed spend in this period" />
+        </section>
       </div>
+
+      <section className="card" aria-labelledby="scorecard">
+        <div className="card-header">
+          <div>
+            <h3 id="scorecard">Supplier scorecard</h3>
+            <p className="card-subtitle">Suppliers with orders in this period</p>
+          </div>
+          <button type="button" className="btn btn-sm btn-outline" disabled={!report.suppliers.length} onClick={() => downloadCsv(`procurex-supplier-scorecard-${period}-${today}.csv`, supplierScorecardCsv(report.suppliers))}>
+            <FiDownload /> CSV
+          </button>
+        </div>
+        <DataTable
+          columns={supplierColumns}
+          rows={report.suppliers}
+          initialSort={{ key: "committedSpend", dir: "desc" }}
+          caption="Supplier scorecard"
+          empty={<EmptyState icon={FiBarChart2} title="No purchase orders in this period" />}
+        />
+      </section>
+
+      <section className="card" aria-labelledby="catspend">
+        <div className="card-header">
+          <div>
+            <h3 id="catspend">Category breakdown</h3>
+            <p className="card-subtitle">Approved, ordered and delivered orders</p>
+          </div>
+          <button type="button" className="btn btn-sm btn-outline" disabled={!report.categories.length} onClick={() => downloadCsv(`procurex-category-spend-${period}-${today}.csv`, categorySpendCsv(report.categories))}>
+            <FiDownload /> CSV
+          </button>
+        </div>
+        <DataTable
+          columns={categoryColumns}
+          rows={report.categories}
+          initialSort={{ key: "value", dir: "desc" }}
+          caption="Category spend"
+          empty={<EmptyState icon={FiBarChart2} title="No committed spend in this period" />}
+        />
+      </section>
     </div>
   );
 }

@@ -1,0 +1,12 @@
+# Only the PROCUREX browser app is deployed.
+# client/ and server/ are the separate ORDERFLOW project (server/.env holds secrets).
+client/
+server/
+node_modules/
+dist/
+dist-standalone/
+tests/
+*.log
+bash.exe.stackdump
+.env
+.env.*
