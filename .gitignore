@@ -1,6 +1,9 @@
 node_modules/
 dist/
+dist-standalone/
 *.log
 bash.exe.stackdump
-dist-standalone/
+
+# Vercel CLI link and pulled env files
 .vercel/
+.env*.local
