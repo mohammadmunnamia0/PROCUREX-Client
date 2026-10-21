@@ -4,8 +4,8 @@
 
 | Item | Value |
 |---|---|
-| Document version | 2.1 (modern bento dashboard redesign) |
-| Date | 2026-10-20 |
+| Document version | 3.0 (one year of sample data, historical analytics, colour system) |
+| Date | 2026-10-21 |
 | Application | PROCUREX (browser-only procurement dashboard and admin panel) |
 | Technology | React 19, Vite 7, React Router 7, Recharts 3, react-icons |
 | Persistence | Browser `localStorage` only (no database, no backend) |
@@ -53,6 +53,17 @@ This SRS is based on a review of the existing repository. The findings determine
 | Vendor auto-blocking / risk scoring computed by server | On-time %, average lead time and rating shown per supplier. Users can set a supplier to `Inactive` | Transparent, client-side calculations |
 | `BrowserRouter` | `HashRouter` | Refreshing any page works on every static host (no server rewrites needed), which avoids "404 on refresh" |
 
+### 0.5 Version 3.0 changes and decisions
+
+| Change | Decision |
+|---|---|
+| One year of predefined sample data | Generated in the browser from a fixed seed, relative to today, so it always covers the last 12 months and works offline. A browser with no saved data starts with it. Every sample record is flagged (`isSample`) and uses its own number series (`PO-S0001`, `PR-S0001`, `SUP-S001`), so user numbering is never affected |
+| Load / reload / remove sample data | Sample records are **merged next to** the user's records, never replacing them. Removing deletes only flagged records, except sample records that the user's own records still use (they are kept so nothing breaks). A snapshot is taken before each operation |
+| Reports page | Replaced by **Analytics**: period presets (this month, 3, 6, 12 months, all time, custom), weekly or monthly grouping, data-source filter, six interactive charts, drill-down, summary tables and CSV export. `/reports` redirects to `/analytics` |
+| "Delayed" and "Completed" statuses | Not stored. **Delayed** is derived: an Ordered PO past its expected delivery date. **In transit** is an Ordered PO not yet late. **Delivered** is the completed state. Statuses therefore update automatically as dates pass |
+| Comparisons | Analytics compares with the previous period of the same length **only when the data fully covers that period** (otherwise a year would be compared with a partial month). The dashboard hero compares month-to-date with the same days of the previous month |
+| Colour system | Validated palettes for statuses, categories (colour follows the category, not its rank) and on-time vs late (indigo/orange rather than green/red for colour-blind users). Colour never carries meaning alone |
+
 ---
 
 ## 1. Project Overview and Objectives
@@ -86,7 +97,8 @@ PROCUREX is a simple, modern procurement management dashboard for supply chain o
 ### 2.1 In scope
 * Dashboard with KPIs, charts, "needs attention" list, recent activity and recent orders.
 * Admin Panel: Purchase Requisitions, Approvals queue, Purchase Orders, Suppliers (with detail page), Categories, Data & Backup (settings, export, import, restore, reset, sample data).
-* Reports page with a period filter (supplier scorecard, category spend, CSV export).
+* Analytics: historical KPIs and six interactive charts with period, grouping and data-source filters, drill-down, summary tables and CSV export.
+* A predefined, clearly flagged sample dataset covering the last 12 months, which can be loaded, reloaded or removed without affecting the user's records.
 * Activity Log of all data changes.
 * Browser-local persistence, cross-tab synchronisation in the same browser, responsive layout.
 
@@ -185,12 +197,17 @@ Priority: **M** = must, **S** = should.
 | FR-C2 | The list shows usage counts (suppliers, PRs, POs) and committed spend per category. | S |
 | FR-C3 | Deletion is blocked while any supplier, PR or PO uses the category. | M |
 
-### 4.7 Reports (FR-RP)
+### 4.7 Analytics (FR-AN)
 | ID | Requirement | P |
 |---|---|---|
-| FR-RP1 | Period filter: All time, Last 30 days, Last 90 days, This year, Last year (based on PO order date). | S |
-| FR-RP2 | Period KPIs: committed spend, PO count, average PO value, on-time %, average lead time, average PR approval time. | M |
-| FR-RP3 | Supplier scorecard table (sortable) and Category spend table, each exportable to CSV. | M |
+| FR-AN1 | Period presets: This month, 3 months, 6 months, 12 months (default), All time and Custom (from/to dates). | M |
+| FR-AN2 | Group by week (default for ranges up to about two months) or month; periods without transactions are shown as zero, never skipped. | M |
+| FR-AN3 | Data-source filter: All records, My records, Sample data. | S |
+| FR-AN4 | KPI cards for the period: committed spend, purchase orders, average order value, on-time delivery %, average lead time, delayed orders (with cancelled count and value). Each shows the change vs the previous period of the same length when the data fully covers that period (§7.2). | M |
+| FR-AN5 | Charts: (1) procurement expenditure per period (area); (2) purchase-order trends, stacked by current outcome (delivered, open, delayed, cancelled); (3) status distribution (doughnut with counts and %); (4) category-wise expenditure (bars in category colours); (5) supplier-wise analysis (bars coloured by on-time reliability band); (6) delivery performance per period (on time vs late). | M |
+| FR-AN6 | Every chart element shows exact values on hover. Clicking a period in a time chart, or "Explore" in the summary table, drills into that period. | M |
+| FR-AN7 | Tables: period summary, supplier scorecard, category breakdown and order history; CSV export for the summary, supplier and category data. | M |
+| FR-AN8 | KPIs, charts and tables recompute immediately when a filter or any record changes. Filters are kept in the URL so refresh and shared links keep the view. A period with no activity shows an empty state with actions. | M |
 
 ### 4.8 Activity Log (FR-L)
 | ID | Requirement | P |
@@ -208,7 +225,9 @@ Priority: **M** = must, **S** = should.
 | FR-B5 | Before any import or reset, automatically keep a snapshot of the current data. The user can **restore the previous data** in one step. | S |
 | FR-B6 | Reset all local data. This requires typing `RESET` and returns the app to the first-run state (default categories, no transactions). | M |
 | FR-B7 | Settings: organisation name, currency (INR, BDT, USD, EUR, GBP), your name. | S |
-| FR-B8 | Load sample data (clearly labelled) is offered only while there are no suppliers, PRs or POs, to help demonstrations. | S |
+| FR-B8 | A browser with no saved data starts with the predefined sample dataset: 13 suppliers in all 7 categories, about 100 requisitions and 120 purchase orders spread over the last 12 months plus the current month, with delivered, in-transit, delayed, approved, pending and cancelled orders and late deliveries. Browsers with saved data are never changed automatically. | M |
+| FR-B8a | Data & Backup offers **Load**, **Reload** (fresh copy dated to today) and **Remove** sample data, each with a confirmation. Loading merges next to the user's records; removing deletes only sample records, except sample records the user's own records still use. A snapshot is taken first. | M |
+| FR-B8b | Sample records are visibly distinguished everywhere: a "Sample" badge in tables, views and the activity log, their own number series, a "My records / Sample data" filter on lists and analytics, a "Sample" column in CSV exports, and a dismissible notice on the Dashboard and Analytics. | M |
 
 ---
 
@@ -274,7 +293,7 @@ All KPIs are computed from stored records at render time. No number is hard-code
 | Awaiting Delivery | count(PO status = Ordered) | Overdue count (Ordered and expected date < today) |
 | Delivered | count(PO status = Delivered) | On-time delivery rate |
 | Cancelled (Order Status and Performance cards) | count(PO status = Cancelled) | Σ total of cancelled POs |
-| Month-over-month change (hero card) | (committed spend this month − last month) ÷ last month × 100, by order date | Shown as this month's spend when last month was 0 |
+| Month-to-date change (hero card) | (committed spend from the 1st to today − the same days of the previous month) ÷ the latter × 100, by order date | Shown as this month's spend so far when the previous period had none |
 
 Supporting calculations:
 
@@ -296,7 +315,22 @@ Supporting calculations:
 | Upcoming deliveries | Ordered POs sorted by expected date; days until = expected − today (negative = overdue) |
 | Open requisitions | PRs with status Pending or Approved; value = Σ estimated totals |
 
-Chart design rules: one hue (blue) for single-series bars, with an ordinal light/dark blue pair for open and delivered spend. Bars are thin with rounded ends. Gridlines are hairline and solid. Every chart has a tooltip and a text or table equivalent. Status badges use colour together with text.
+Chart design rules: bars are thin with rounded ends; gridlines are hairline and solid; every chart has a tooltip with exact values and a text or table equivalent; a legend is shown for 2+ series; status badges use colour together with text. Palettes are listed in §7.2.
+
+### 7.2 Analytics definitions
+
+| Item | Definition |
+|---|---|
+| Date basis | Spend, order counts, status mix, category and supplier spend use the PO **order date**. Delivery performance (on time vs late, lead time, on-time %) uses the **actual delivery date** |
+| Display status | Delivered (completed) · In transit (Ordered, expected date ≥ today) · Delayed (Ordered, expected date < today) · Approved · Pending · Cancelled |
+| Periods | Presets end today: this month starts on the 1st; 3/6/12 months start on the 1st of the month 2/5/11 months back; all time starts at the first recorded month |
+| Grouping | Weekly buckets start on Monday; monthly buckets are calendar months; the first and last buckets are clipped to the range; empty buckets are zero |
+| Previous period | The same number of days immediately before the range. Changes are shown only if the earliest recorded order is on or before its first day. On-time % changes are in percentage points; for lead time and delayed orders, down is good |
+| Delayed orders KPI | Orders placed in the period that are currently delayed |
+| Supplier reliability band | Reliable ≥ 90% on time · Watch 70–89% · At risk < 70% · No deliveries yet |
+| Category colours | Fixed 8-slot palette (`#4f46e5, #eb6834, #1baf7a, #eda100, #e87ba4, #008300, #0ea5e9, #e34948`), assigned by category creation order; further categories fold into grey "Other" |
+| Status colours | Delivered `#17b26a`, In transit `#0ba5ec`, Delayed `#f04438`, Approved `#6366f1`, Pending `#f79009`, Cancelled `#98a2b3` (ordered so green never touches red or amber in the doughnut) |
+| On time vs late | Indigo `#4f46e5` vs orange `#eb6834` (colour-blind safe, ΔE 31) |
 
 ---
 
@@ -397,6 +431,13 @@ All records have `id` (random unique string), `createdAt` and `updatedAt` (ISO t
 * Deleting a PO is always allowed. Linked PR statuses are re-synchronised afterwards.
 * Imported records that reference missing suppliers or categories are kept and displayed as "Unknown supplier" or "Uncategorized".
 
+### 8.9 Sample (demo) records
+* Categories, suppliers, requisitions, purchase orders and activity entries may carry `isSample: true`. User records never have the flag.
+* Sample numbers: `PR-S####`, `PO-S####`, `SUP-S###`. They are excluded from the user counters, so user numbering (`PO-0001`, …) is unaffected by loading or removing sample data.
+* Sample categories and suppliers are only created when the user has none with the same name (or, for suppliers, the same email); otherwise the existing record is reused.
+* `settings.sampleLoadedAt` records when the dataset was generated (used to suggest a reload when dates are older than 30 days).
+* When the activity log reaches its limit, sample entries are dropped before the user's own history.
+
 ---
 
 ## 9. Browser-Based Storage Architecture
@@ -414,8 +455,8 @@ All records have `id` (random unique string), `createdAt` and `updatedAt` (ISO t
                                ▲                                         │
                                └──── 'storage' event (other tabs) ◄──────┘
 ```
-* **Single source of truth:** one React context holds the whole dataset. The Dashboard, Admin Panel, Reports and Activity Log all read from it, so a change made anywhere re-renders every view at once.
-* **Pure core:** `schema.js` (constants and defaults), `normalize.js` (sanitise and migrate data), `validation.js`, `reducer.js`, `metrics.js`. These have no React or browser dependencies and are unit-tested.
+* **Single source of truth:** one React context holds the whole dataset. The Dashboard, Analytics, Admin Panel and Activity Log all read from it, so a change made anywhere re-renders every view at once.
+* **Pure core:** `schema.js` (constants and defaults), `normalize.js` (sanitise and migrate data), `validation.js`, `reducer.js`, `metrics.js`, `analytics.js`, `sampleData.js` and `theme/palette.js`. These have no React or browser dependencies and are unit-tested.
 * **Synchronous autosave:** after every committed change the full document is serialised and written to `localStorage`. The result (success or error) drives the save indicator.
 * **Why `localStorage` rather than IndexedDB:** the dataset is small (kilobytes to a few MB), synchronous writes make "saved" unambiguous, and the API is universally supported. IndexedDB would add asynchronous complexity without benefit at this scale.
 
@@ -423,7 +464,7 @@ All records have `id` (random unique string), `createdAt` and `updatedAt` (ISO t
 | Key | Content |
 |---|---|
 | `procurex:data:v1` | Main document (JSON) |
-| `procurex:snapshot:v1` | Previous-data snapshot taken before import or reset (with time and reason) |
+| `procurex:snapshot:v1` | Previous-data snapshot taken before import, reset or a sample-data operation (with time and reason) |
 | `procurex:corrupt:v1` | Raw copy of unreadable stored data, kept for manual recovery |
 
 ### 9.3 Document format
@@ -442,7 +483,7 @@ The same format is used for JSON export and import.
 
 ### 9.4 Load sequence
 1. Check that `localStorage` is usable (write/remove a probe key). If not, run in **memory-only mode** with a persistent warning.
-2. Read `procurex:data:v1`. If it is missing, this is the first run: create defaults (default categories) and save.
+2. Read `procurex:data:v1`. If it is missing, this is the first visit: create defaults (default categories) plus the flagged sample dataset, and save. Existing saved data is never re-seeded.
 3. Parse JSON. On failure, copy the raw text to `procurex:corrupt:v1`, start with defaults, and show a recovery banner with a "Download unreadable data" option.
 4. Normalise: unknown or invalid values are coerced to safe defaults, records that cannot be repaired are dropped (and counted), duplicate IDs are removed, counters are re-derived from existing numbers, and PR statuses are re-synchronised with POs. Any warnings are shown once.
 
@@ -453,10 +494,11 @@ The app listens to the `storage` event. When another tab saves, the current tab 
 
 ## 10. UI/UX and Responsive Design Requirements
 
-* **Navigation (sidebar):** *Overview*: Dashboard, Reports, Activity Log. *Admin Panel*: Overview, Purchase Requisitions, Approvals (with pending count badge), Purchase Orders, Suppliers, Categories, Data & Backup. The sidebar footer shows a profile card (your name and organisation, linking to settings). A "Not saved" warning appears in the sidebar and top bar **only when saving fails**. While saving works, no save indicator is shown.
+* **Navigation (sidebar):** *Overview*: Dashboard, Analytics, Activity Log. *Admin Panel*: Overview, Purchase Requisitions, Approvals (with pending count badge), Purchase Orders, Suppliers, Categories, Data & Backup. The sidebar footer shows a profile card (your name and organisation, linking to settings). A "Not saved" warning appears in the sidebar and top bar **only when saving fails**. While saving works, no save indicator is shown.
 * **Page pattern:** page header (title, description, primary action), then a toolbar (search, filters), then a card containing a sortable table, or an empty state with a call to action.
 * **Forms:** open in a modal dialog over the list. Required fields are marked `*` and errors appear under each field on submit (and clear as the user fixes them). Computed totals are shown live. Closing a modified form asks for confirmation.
 * **Feedback:** success and error toasts; a global banner for storage problems; confirmation dialogs in place of native `confirm`/`alert`/`prompt`.
+* **Colourful analytics (v3.0):** KPI tiles have a colour per metric (icon chip and a subtle tinted gradient), charts use the palettes in §7.2, category colour dots appear in every table, supplier avatars get stable soft colours, and sample records carry a dashed violet "Sample" badge. Hover states lift cards slightly; animations are short and respect "reduce motion".
 * **Visual design (v2.1):** modern light theme with design tokens in `index.css`: neutral grey canvas, white sidebar and cards, 16 px rounded corners, soft shadows and an indigo/violet accent (`#4f46e5` → `#6d28d9` gradient on the hero card). The dashboard uses a 12-column bento grid. Status badges carry a coloured dot and text (Pending: amber, Approved: indigo, Ordered: sky, Delivered: green, Cancelled: grey, Rejected: red). Charts use one validated indigo hue (delivered `#4f46e5`, open `#818cf8`). Secondary row actions sit in a "⋯" menu so tables fit laptop screens. Currency is compact on cards (e.g. ₹2.03M, ₹846.6K) and full in tables.
 * **Responsive:** grids collapse to one column below 900 px; KPI cards are 3 per row on desktop and 2 per row on tablets and phones (icons hidden on phones); the sidebar becomes an off-canvas drawer opened from a top bar; dialogs become full-width on phones; no horizontal page scroll (wide tables scroll inside their card).
 
@@ -483,7 +525,7 @@ The app listens to the `storage` event. When another tab saves, the current tab 
 
 ### 12.1 Acceptance criteria
 1. The app builds (`npm run build`) and runs with no backend running and no network requests for data.
-2. With empty storage, the dashboard shows an empty state (no fake numbers) with actions to add the first records.
+2. A first visit shows the flagged sample dataset with a notice; after removing it (or a reset) with no records of your own, the dashboard shows an empty state with actions to add the first records.
 3. Creating, editing or deleting any record updates all dependent KPIs, charts and tables immediately, without a page reload.
 4. After a page refresh or browser restart, all records are still present (same browser profile).
 5. Every required field rejects empty or invalid input with a clear message, and destructive actions ask for confirmation.
@@ -491,12 +533,14 @@ The app listens to the `storage` event. When another tab saves, the current tab 
 7. Storage failures are visible to the user, never silent.
 8. Layout is usable at 375 px width with no horizontal page scroll.
 9. `npm test` passes.
+10. Analytics shows all 12 months of the sample year with data; KPI cards, charts and tables agree, and every filter updates all of them.
+11. Loading, reloading or removing sample data never changes or deletes the user's own records.
 
 ### 12.2 Test scenarios
 
 | # | Scenario | Steps | Expected result |
 |---|---|---|---|
-| T1 | First run | Open the app with empty storage | Default categories exist. Dashboard empty state shown. All KPIs are 0 or "–" |
+| T1 | First visit | Open the app with empty storage | Sample dataset loaded (all records flagged and S-numbered), notice shown, KPIs derived from it. After "Remove sample data": default categories only and the empty-state dashboard |
 | T2 | Add supplier | Admin → Suppliers → Add, with valid data | Appears in list with code `SUP-001`. Toast shown. Admin overview count +1 |
 | T3 | Supplier validation | Submit with empty name and invalid email | Field errors shown. Nothing saved |
 | T4 | Duplicate supplier | Add a second supplier with the same name in a different case | "Name already exists" error |
@@ -520,7 +564,17 @@ The app listens to the `storage` event. When another tab saves, the current tab 
 | T22 | Cross-tab | Open two tabs, add a PO in one | The other tab updates automatically |
 | T23 | Responsive | 375 px viewport | Menu button opens sidebar drawer. KPI cards in two columns, other cards stack. No page-level horizontal scroll |
 | T24 | Sorting/filtering | Sort POs by total. Filter by status and supplier. Search by PO number | Table order and contents correct |
-| T25 | Unit tests | `npm test` | Validation, normalisation, reducer workflow, metrics and storage tests pass |
+| T25 | Unit tests | `npm test` | Validation, normalisation, reducer workflow, metrics, storage, sample-data and analytics tests pass |
+| T26 | 12 months of history | Analytics, 12 months | 12 periods, each with orders; KPI order count = summary-table total = doughnut total |
+| T27 | Period filters | 3 months, This month, Custom, All time | KPIs, charts and tables change; this month groups by week; grouping switchable |
+| T28 | Empty period | Custom range with no activity | Empty state with "Show the last 12 months" |
+| T29 | Drill-down and tooltips | Click "Explore" or a chart period; hover chart elements | Range narrows to that period (weekly view); tooltips show exact amounts |
+| T30 | Previous-period comparison | 6 months vs 12 months with the sample year | Changes shown for 6 months; hidden with an explanation for 12 months |
+| T31 | Source filter | Analytics / lists → "My records", "Sample data" | Only the chosen records counted or listed; sample rows show the badge |
+| T32 | Non-destructive load | With own records, Load sample data | Own records, numbers and counters byte-for-byte unchanged; sample records added |
+| T33 | Non-destructive remove | Remove sample data (with an own PO for a sample supplier) | Only sample records removed; the sample supplier used by the own PO is kept |
+| T34 | Live analytics | Add, edit or delete a PO | Analytics KPIs and charts reflect it immediately |
+| T35 | Offline single file | Open `dist-standalone/PROCUREX.html` from disk | Opens without a server with the sample dataset; analytics charts render; data persists after reload |
 
 ---
 
@@ -535,9 +589,12 @@ The app listens to the `storage` event. When another tab saves, the current tab 
 | KPI and report calculations (§7) | `src/store/metrics.js` |
 | `localStorage` adapter (§9, §11) | `src/store/storage.js` |
 | Shared state and autosave | `src/store/ProcurementContext.jsx` |
-| Dashboard / Reports / Activity | `src/pages/Dashboard.jsx`, `src/pages/Reports.jsx`, `src/pages/ActivityLog.jsx` |
+| Dashboard / Analytics / Activity | `src/pages/Dashboard.jsx`, `src/pages/Analytics.jsx`, `src/pages/ActivityLog.jsx` |
+| Analytics calculations (§7.2) | `src/store/analytics.js` |
+| Sample dataset (§0.5, §8.9) | `src/store/sampleData.js` |
+| Charts and colour system | `src/components/Charts.jsx`, `src/theme/palette.js` |
 | Standalone single-file build | `vite.config.js` (`--mode standalone`), output `dist-standalone/PROCUREX.html` |
 | Admin Panel | `src/pages/admin/*` |
-| Export / CSV / sample data | `src/utils/csv.js`, `src/utils/download.js`, `src/store/sampleData.js` |
+| Export / CSV | `src/utils/csv.js`, `src/utils/download.js` |
 | Automated tests | `tests/*.test.js` (`npm test`) |
 | Vite launcher (`#` in path) | `scripts/vite.js` |

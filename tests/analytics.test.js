@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buildBuckets, change, computeAnalytics, defaultGranularity, previousRange, resolveRange } from "../src/store/analytics.js";
 import { computeKpis, monthToDate } from "../src/store/metrics.js";
 import { generateSampleData } from "../src/store/sampleData.js";
-import { CATEGORY_PALETTE } from "../src/theme/palette.js";
+import { CATEGORY_PALETTE, categoryColorMap } from "../src/theme/palette.js";
 import { createHarness, ok, poValues, supplierValues, TODAY } from "./helpers.js";
 
 function sampleHarness() {
@@ -111,6 +111,13 @@ test("adding, editing and deleting a record updates the analytics", () => {
   assert.deepEqual([after.kpis.delivered, after.kpis.late, after.kpis.onTimeRate], [1, 1, 0]);
   ok(h.actions.deletePurchaseOrder(po.id));
   assert.equal(run().hasData, false);
+});
+
+test("category colours are stable when categories share a creation time", () => {
+  const at = "2026-01-01T00:00:00.000Z";
+  const cats = ["Raw Materials", "Packaging", "IT Equipment"].map((name, i) => ({ id: ["zz9", "aa1", "mm5"][i], name, createdAt: at }));
+  const colors = categoryColorMap(cats);
+  assert.deepEqual([colors.get("zz9"), colors.get("aa1"), colors.get("mm5")], CATEGORY_PALETTE.slice(0, 3), "list order, not id order");
 });
 
 test("category colours follow the category and fold into Other", () => {

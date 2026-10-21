@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   FiAlertTriangle,
@@ -38,6 +38,30 @@ import { categorySpendCsv, periodSummaryCsv, supplierScorecardCsv } from "../uti
 import { downloadCsv } from "../utils/download";
 import { NO_DATA_BAND, RELIABILITY_BANDS } from "../theme/palette";
 
+// Filters live in React state (always current, even for quick successive changes) and
+// are mirrored into the URL so a refresh or a shared link keeps the same view.
+function readFilters(params) {
+  return {
+    range: RANGE_PRESETS.some((p) => p.key === params.get("range")) ? params.get("range") : "12m",
+    from: params.get("from") || "",
+    to: params.get("to") || "",
+    group: ["week", "month"].includes(params.get("group")) ? params.get("group") : "",
+    source: SOURCES.some((x) => x.key === params.get("source")) ? params.get("source") : "all",
+  };
+}
+
+function serializeFilters(f) {
+  const q = new URLSearchParams();
+  if (f.range !== "12m") q.set("range", f.range);
+  if (f.range === "custom") {
+    if (f.from) q.set("from", f.from);
+    if (f.to) q.set("to", f.to);
+  }
+  if (f.group) q.set("group", f.group);
+  if (f.source !== "all") q.set("source", f.source);
+  return q.toString();
+}
+
 /** Change vs the previous period, coloured by whether "up" is good for this metric. */
 function deltaFor(current, previous, { goodWhen = "neutral", points = false, label }) {
   if (current === null || current === undefined || previous === null || previous === undefined) return null;
@@ -56,19 +80,21 @@ export default function Analytics() {
   const today = todayISO();
   const narrow = useIsNarrow();
 
-  // ----- Filter state lives in the URL so refresh / links keep the view -----
-  const preset = RANGE_PRESETS.some((p) => p.key === params.get("range")) ? params.get("range") : "12m";
-  const source = SOURCES.some((s) => s.key === params.get("source")) ? params.get("source") : "all";
-  const range = resolveRange(preset, today, { from: params.get("from"), to: params.get("to"), data });
-  const group = ["week", "month"].includes(params.get("group")) ? params.get("group") : defaultGranularity(range);
+  // ----- Filters: React state first, mirrored to the URL -----
+  const [filters, setFilters] = useState(() => readFilters(params));
+  const update = (changes) => setFilters((prev) => ({ ...prev, ...changes }));
+  const query = serializeFilters(filters);
+  useEffect(() => {
+    if (query !== params.toString()) setParams(new URLSearchParams(query), { replace: true });
+  }, [query]); // eslint-disable-line react-hooks/exhaustive-deps -- one-way sync: state → URL
 
-  const update = (changes) => {
-    const next = new URLSearchParams(params);
-    Object.entries(changes).forEach(([k, v]) => (v ? next.set(k, v) : next.delete(k)));
-    setParams(next, { replace: true });
-  };
+  const preset = filters.range;
+  const source = filters.source;
+  const range = resolveRange(preset, today, { from: filters.from, to: filters.to, data });
+  const group = filters.group || defaultGranularity(range);
+
   const choosePreset = (key) =>
-    key === "custom" ? update({ range: "custom", from: range.from, to: range.to, group: null }) : update({ range: key, from: null, to: null, group: null });
+    key === "custom" ? update({ range: "custom", from: range.from, to: range.to, group: "" }) : update({ range: key, from: "", to: "", group: "" });
   const drillInto = (bucket) => update({ range: "custom", from: bucket.from, to: bucket.to, group: "week" });
 
   const a = useMemo(() => computeAnalytics(data, { range, granularity: group, source, today }), [data, range.from, range.to, group, source, today]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -156,14 +182,16 @@ export default function Analytics() {
   const orderColumns = [
     {
       key: "number",
-      header: "PO #",
+      header: "Order",
       render: (p) => (
-        <span className="nowrap">
-          <strong>{p.number}</strong> <SampleBadge record={p} />
-        </span>
+        <div className="cell-main">
+          <span className="nowrap">
+            <strong>{p.number}</strong> <SampleBadge record={p} />
+          </span>
+          <span className="cell-sub">{suppliersById.get(p.supplierId)?.name || UNKNOWN_SUPPLIER}</span>
+        </div>
       ),
     },
-    { key: "supplier", header: "Supplier", sortValue: (p) => suppliersById.get(p.supplierId)?.name || "", render: (p) => suppliersById.get(p.supplierId)?.name || UNKNOWN_SUPPLIER },
     { key: "orderDate", header: "Ordered", className: "nowrap", render: (p) => formatDate(p.orderDate) },
     { key: "total", header: "Total", align: "right", sortValue: poTotal, render: (p) => money(poTotal(p)) },
     { key: "status", header: "Status", sortValue: (p) => displayStatus(p, today), render: (p) => <StatusBadge status={displayStatus(p, today)} /> },
@@ -214,7 +242,7 @@ export default function Analytics() {
               Monthly
             </button>
           </div>
-          <SourceSelect value={source} onChange={(v) => update({ source: v === "all" ? null : v })} data={data} />
+          <SourceSelect value={source} onChange={(v) => update({ source: v })} data={data} />
         </div>
         <p className="filter-summary">
           <FiCalendar aria-hidden="true" />
@@ -232,7 +260,7 @@ export default function Analytics() {
       {!a.hasData ? (
         <div className="card">
           <EmptyState icon={FiCalendar} title="No procurement activity in this period" message={`Nothing was ordered or delivered between ${formatDate(range.from)} and ${formatDate(range.to)}${source !== "all" ? ` in ${SOURCES.find((s) => s.key === source).label.toLowerCase()}` : ""}.`}>
-            <button type="button" className="btn btn-primary" onClick={() => update({ range: "12m", from: null, to: null, group: null, source: null })}>
+            <button type="button" className="btn btn-primary" onClick={() => update({ range: "12m", from: "", to: "", group: "", source: "all" })}>
               Show the last 12 months
             </button>
             {!hasSample && (

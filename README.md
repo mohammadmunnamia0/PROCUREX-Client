@@ -1,6 +1,8 @@
 # PROCUREX – Procurement Management Dashboard
 
-A browser-only Supply Chain Procurement Management System built with React 19 and Vite 7. Record suppliers, purchase requisitions, approvals, purchase orders and deliveries in the **Admin Panel**. The **Dashboard** and **Reports** recalculate instantly from those records.
+A browser-only Supply Chain Procurement Management System built with React 19 and Vite 7. Record suppliers, purchase requisitions, approvals, purchase orders and deliveries in the **Admin Panel**. The **Dashboard** and **Analytics** recalculate instantly from those records.
+
+A first visit opens with **one year of realistic sample data** (13 suppliers, about 120 purchase orders over the last 12 months), clearly marked *Sample* and kept separate from your own records. You can remove, reload or re-add it at any time in **Data & Backup** without touching your records.
 
 There is **no backend and no database**. All data is saved in the browser's `localStorage` on your device.
 
@@ -28,7 +30,8 @@ npm start          # opens http://localhost:3000 in your browser
 
 - **Dashboard (bento layout):** a total expenditure card (month-over-month change, delivered vs open, 12-month trend) and KPI tiles for total POs, pending approvals, awaiting delivery (overdue, next delivery) and delivered (on-time %). Also a monthly expenditure chart (with table view), order status breakdown, procurement pipeline, spend by category, top suppliers, needs attention, upcoming deliveries, requisitions summary, performance metrics, recent orders and recent activity.
 - **Admin Panel:** purchase requisitions, an approvals queue, purchase orders (create from an approved requisition or directly, then mark ordered and delivered), suppliers (with a performance page), categories, and Data & Backup.
-- **Reports:** period filter, supplier scorecard and category breakdown, each exportable to CSV.
+- **Analytics:** this month / 3 / 6 / 12 months / all time / custom range, weekly or monthly grouping, and an "All records / My records / Sample data" filter. Six interactive charts (expenditure trend, purchase-order trends, status doughnut, category spend, supplier spend coloured by on-time reliability, delivery performance), exact-value tooltips, click-to-drill-down, KPI changes vs the previous period, summary tables and CSV export.
+- **Sample data:** deterministic demo year generated in the browser (works offline), flagged with a *Sample* badge and its own numbers (`PO-S0001`); load, reload or remove it without affecting your own records.
 - **Activity log** of every change.
 - **Data & Backup:** JSON backup export and import (with preview), CSV exports, automatic snapshot with one-click restore before any import or reset, reset with typed confirmation, settings (organisation name, currency, your name), and optional sample data for demos.
 

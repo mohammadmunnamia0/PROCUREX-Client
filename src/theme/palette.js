@@ -47,9 +47,16 @@ export function reliabilityBand(onTimeRate) {
   return RELIABILITY_BANDS.find((b) => onTimeRate >= b.min) || RELIABILITY_BANDS[RELIABILITY_BANDS.length - 1];
 }
 
-/** Category colour follows the category (its creation order), never its spend rank. */
+/**
+ * Category colour follows the category (its creation order), never its spend rank.
+ * Ties (categories created in the same instant, like the defaults) keep list order –
+ * never random IDs – so every browser shows the same colours.
+ */
 export function categoryColorMap(categories) {
-  const ordered = [...categories].sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || "") || a.id.localeCompare(b.id));
+  const ordered = categories
+    .map((c, index) => ({ c, index }))
+    .sort((a, b) => (a.c.createdAt || "").localeCompare(b.c.createdAt || "") || a.index - b.index)
+    .map(({ c }) => c);
   return new Map(ordered.map((c, i) => [c.id, i < CATEGORY_PALETTE.length ? CATEGORY_PALETTE[i] : OTHER_COLOR]));
 }
 
